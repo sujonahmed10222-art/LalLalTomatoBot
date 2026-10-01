@@ -1,0 +1,3318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b0614">
+<meta name="description" content="TomatoQuest — a mobile earning game demo. Grow your character, complete rewarded activities and track your progress. Demo build: no real money.">
+<title>TomatoQuest — Grow • Play • Earn</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='t' cx='35%25' cy='30%25' r='80%25'%3E%3Cstop offset='0%25' stop-color='%23ff8a5c'/%3E%3Cstop offset='55%25' stop-color='%23ff5a45'/%3E%3Cstop offset='100%25' stop-color='%23d92e3c'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cellipse cx='32' cy='37' rx='23' ry='21' fill='url(%23t)'/%3E%3Cpath d='M32 17c-1-4 1-7 4-8' stroke='%233e7d3a' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M32 19c-7-6-15-4-17 2 6 3 13 2 17-2z' fill='%234caf50'/%3E%3Cpath d='M32 19c7-6 15-4 17 2-6 3-13 2-17-2z' fill='%234caf50'/%3E%3C/svg%3E">
+<style>
+/* ==========================================================================
+   TomatoQuest — single-file earning game web app (demo)
+   All CSS is self-contained. No external fonts, images or frameworks.
+   Design: premium dark "magic garden" game theme, mobile-first.
+   Older-Android note: critical properties are declared twice — first as a
+   literal fallback, then enhanced with rgba()/gradient values. CSS custom
+   properties are only used for non-critical accents.
+   ========================================================================== */
+
+/* ---------- reset & base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: #0b0614;
+  background: linear-gradient(180deg, #100a1e 0%, #0b0614 45%, #130922 100%);
+  color: #f4f1ff;
+  color: var(--text, #f4f1ff);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+button, input, select, textarea { font-family: inherit; font-size: inherit; }
+button, .btn, .q-card, .char-cell { touch-action: manipulation; }
+button { cursor: pointer; }
+h1, h2, h3, h4, p { margin: 0; }
+svg { display: block; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 99px; }
+::selection { background: rgba(255,157,46,.35); }
+
+/* ---------- ambient background glows (cheap: no filter blur) ---------- */
+.bg-fx { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.bg-fx i { position: absolute; border-radius: 50%; }
+.bg-fx .g1 { width: 420px; height: 420px; top: -160px; left: -130px;
+  background: radial-gradient(circle, rgba(255,90,69,.34) 0%, rgba(255,90,69,0) 70%);
+  animation: drift 16s ease-in-out infinite alternate; }
+.bg-fx .g2 { width: 400px; height: 400px; top: 32%; right: -170px;
+  background: radial-gradient(circle, rgba(124,58,237,.30) 0%, rgba(124,58,237,0) 70%);
+  animation: drift 19s ease-in-out infinite alternate-reverse; }
+.bg-fx .g3 { width: 340px; height: 340px; bottom: -150px; left: -110px;
+  background: radial-gradient(circle, rgba(14,165,160,.16) 0%, rgba(14,165,160,0) 70%);
+  animation: drift 22s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translate3d(0,0,0); } to { transform: translate3d(26px,34px,0); } }
+
+/* ---------- layout ---------- */
+#app { position: relative; z-index: 1; }
+.view {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 14px 16px 118px;
+  padding-bottom: 118px;
+}
+.view.anim > * { animation: rise .32s cubic-bezier(.2,.8,.3,1) both; }
+.view.anim > *:nth-child(2) { animation-delay: .035s; }
+.view.anim > *:nth-child(3) { animation-delay: .07s; }
+.view.anim > *:nth-child(4) { animation-delay: .105s; }
+.view.anim > *:nth-child(5) { animation-delay: .14s; }
+.view.anim > *:nth-child(6) { animation-delay: .175s; }
+.view.anim > *:nth-child(7) { animation-delay: .21s; }
+.view.anim > *:nth-child(n+8) { animation-delay: .24s; }
+@keyframes rise { from { opacity: 0; transform: translate3d(0,12px,0); } to { opacity: 1; transform: none; } }
+
+/* ---------- headers ---------- */
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.userchip { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.avatar {
+  width: 44px; height: 44px; border-radius: 15px; flex: none;
+  background: linear-gradient(135deg, #2a1b4a, #1a1030);
+  border: 1px solid rgba(255,255,255,.14);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.u-name { font-weight: 800; font-size: 15.5px; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.u-id { font-size: 11.5px; color: #a89fc9; color: var(--muted, #a89fc9); font-weight: 600; letter-spacing: .4px; }
+.iconbtn {
+  position: relative; width: 42px; height: 42px; border-radius: 14px; flex: none;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  color: #cfc7e8; display: flex; align-items: center; justify-content: center;
+  transition: transform .12s, background .2s;
+}
+.iconbtn:active { transform: scale(.92); }
+.iconbtn .dot {
+  position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%;
+  background: #ff5757; border: 2px solid #150d26; box-shadow: 0 0 8px rgba(255,87,87,.8);
+}
+.pagehead { margin: 4px 0 14px; }
+.pagehead h2 { font-size: 21px; font-weight: 800; letter-spacing: .2px; }
+.pagehead p { font-size: 12.5px; color: #a89fc9; color: var(--muted, #a89fc9); margin-top: 3px; }
+.backhead { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.backhead h2 { font-size: 19px; font-weight: 800; flex: 1; }
+
+/* ---------- cards ---------- */
+.card {
+  background: #171029;
+  background: linear-gradient(170deg, rgba(255,255,255,.065) 0%, rgba(255,255,255,.028) 100%), #150e26;
+  border: 1px solid rgba(255,255,255,.085);
+  border-radius: 20px;
+  padding: 14px 14px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.card-title { font-size: 13.5px; font-weight: 800; letter-spacing: .2px; }
+.card-val { font-size: 13px; font-weight: 800; color: #ffd76b; }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.linkbtn {
+  background: none; border: 0; padding: 4px 2px; color: #ffb45c; font-weight: 700; font-size: 12.5px;
+  display: inline-flex; align-items: center; gap: 3px;
+}
+
+/* ---------- balance card ---------- */
+.balance-card {
+  border-radius: 24px; padding: 1.5px; margin-bottom: 14px; border: 0;
+  background: linear-gradient(135deg, rgba(255,201,60,.85) 0%, rgba(255,107,74,.6) 38%, rgba(160,107,255,.55) 100%);
+  box-shadow: 0 14px 42px rgba(255,122,60,.18);
+  text-align: left; width: 100%; display: block; color: inherit;
+}
+.balance-inner {
+  border-radius: 23px; padding: 18px 16px 14px; position: relative; overflow: hidden;
+  background: #150d26;
+  background: linear-gradient(168deg, #1d1233 0%, #130c21 70%);
+}
+.balance-inner .p { position: absolute; border-radius: 50%; pointer-events: none; opacity: .5; }
+.balance-inner .p1 { width: 90px; height: 90px; top: -34px; right: -22px; background: radial-gradient(circle, rgba(255,201,60,.35) 0%, rgba(255,201,60,0) 70%); animation: floaty 6s ease-in-out infinite; }
+.balance-inner .p2 { width: 70px; height: 70px; bottom: -20px; left: 26%; background: radial-gradient(circle, rgba(255,107,74,.3) 0%, rgba(255,107,74,0) 70%); animation: floaty 7.5s ease-in-out infinite reverse; }
+.balance-inner .p3 { width: 46px; height: 46px; top: 30%; left: -16px; background: radial-gradient(circle, rgba(160,107,255,.32) 0%, rgba(160,107,255,0) 70%); animation: floaty 8.5s ease-in-out infinite; }
+@keyframes floaty { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(4px,-9px,0); } }
+.bc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.bc-label { font-size: 12px; font-weight: 700; color: #b3a9d6; color: var(--muted, #b3a9d6); letter-spacing: .8px; text-transform: uppercase; }
+.bc-amount {
+  font-size: 38px; font-weight: 800; letter-spacing: -.5px; line-height: 1.15;
+  color: #ffc93c;
+  background: linear-gradient(120deg, #ffe9a8 5%, #ffc93c 45%, #ff9d2e 95%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.bc-stats { display: flex; align-items: center; margin-top: 12px; }
+.bc-stat { flex: 1; min-width: 0; }
+.bc-stat span { display: block; font-size: 11px; font-weight: 700; color: #9d93c2; letter-spacing: .4px; text-transform: uppercase; }
+.bc-stat b { display: block; font-size: 15.5px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.bc-sep { width: 1px; height: 30px; background: rgba(255,255,255,.12); margin: 0 12px; flex: none; }
+.bc-foot {
+  display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 13px;
+  padding-top: 11px; border-top: 1px solid rgba(255,255,255,.09);
+  font-size: 12.5px; font-weight: 800; color: #ffd76b;
+}
+
+/* ---------- demo chip ---------- */
+.demo-chip {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 1px;
+  padding: 3px 8px; border-radius: 99px;
+  color: #ffcf7d; background: rgba(255,178,60,.1);
+  border: 1px dashed rgba(255,178,60,.5);
+}
+
+/* ---------- progress bars ---------- */
+.bar { height: 10px; border-radius: 99px; background: rgba(255,255,255,.09); overflow: hidden; position: relative; margin: 10px 0 6px; }
+.bar.slim { height: 7px; margin: 8px 0 4px; }
+.bar-fill {
+  height: 100%; border-radius: 99px; width: 0%;
+  background: linear-gradient(90deg, #ff5a45, #ff9d2e 60%, #ffc93c);
+  transition: width .6s cubic-bezier(.2,.8,.3,1);
+  position: relative; min-width: 0;
+}
+.bar-fill.gold { background: linear-gradient(90deg, #ffc93c, #ff8a00); }
+.bar-fill.green { background: linear-gradient(90deg, #3ddc84, #0e9f5c); }
+.bar-fill.purple { background: linear-gradient(90deg, #a06bff, #6d3ee0); }
+.bar-fill.live::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(100deg, transparent 25%, rgba(255,255,255,.4) 50%, transparent 75%);
+  transform: translateX(-100%);
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 0; border-radius: 14px; padding: 12px 18px;
+  font-weight: 800; font-size: 14px; letter-spacing: .2px; color: #fff;
+  background: rgba(255,255,255,.09);
+  transition: transform .12s, box-shadow .25s, filter .2s, opacity .2s;
+  text-align: center;
+}
+.btn:active { transform: scale(.955); }
+.btn[disabled] { opacity: .45; pointer-events: none; filter: grayscale(.4); }
+.btn-primary { background: linear-gradient(135deg, #ff5a45, #ff9d2e); box-shadow: 0 10px 26px rgba(255,110,60,.32); }
+.btn-gold { background: linear-gradient(135deg, #ffc93c, #ff8a00); color: #3a1d00; box-shadow: 0 10px 26px rgba(255,170,40,.28); }
+.btn-green { background: linear-gradient(135deg, #2ed380, #0e9f5c); box-shadow: 0 10px 26px rgba(46,211,128,.26); }
+.btn-purple { background: linear-gradient(135deg, #a06bff, #6d3ee0); box-shadow: 0 10px 26px rgba(140,90,240,.3); }
+.btn-outline { background: transparent; border: 1px solid rgba(255,255,255,.18); }
+.btn-block { width: 100%; }
+.btn-sm { padding: 8px 13px; font-size: 12.5px; border-radius: 11px; }
+
+/* ---------- watch ad CTA ---------- */
+.watch-cta {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  border: 0; border-radius: 22px; padding: 15px 16px;
+  background: linear-gradient(135deg, #ff5a45 0%, #ff7a3c 55%, #ff9d2e 100%);
+  color: #fff; text-align: left; margin-bottom: 14px;
+  box-shadow: 0 14px 36px rgba(255,110,60,.38), inset 0 1px 0 rgba(255,255,255,.28);
+  animation: ctaGlow 2.8s ease-in-out infinite;
+  transition: transform .12s;
+}
+.watch-cta:active { transform: scale(.975); }
+.watch-cta[disabled] { animation: none; filter: grayscale(.55); opacity: .6; }
+@keyframes ctaGlow {
+  0%, 100% { box-shadow: 0 12px 30px rgba(255,110,60,.34), inset 0 1px 0 rgba(255,255,255,.28); }
+  50% { box-shadow: 0 16px 44px rgba(255,130,50,.5), inset 0 1px 0 rgba(255,255,255,.28); }
+}
+.wa-ico {
+  width: 46px; height: 46px; border-radius: 16px; flex: none;
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.28);
+  display: flex; align-items: center; justify-content: center;
+}
+.wa-ico .ic { width: 24px; height: 24px; }
+.wa-text { flex: 1; min-width: 0; }
+.wa-text b { display: block; font-size: 16.5px; font-weight: 800; letter-spacing: 1.2px; }
+.wa-text small { display: block; font-size: 11.5px; font-weight: 700; opacity: .92; margin-top: 1px; }
+
+/* ---------- quick action grid (home) ---------- */
+.quick-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.q-card {
+  flex: 1 1 30%; min-width: 96px;
+  background: #171029;
+  background: linear-gradient(170deg, rgba(255,255,255,.065), rgba(255,255,255,.028)), #150e26;
+  border: 1px solid rgba(255,255,255,.085); border-radius: 18px;
+  padding: 13px 10px; text-align: center; color: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  transition: transform .12s, border-color .2s;
+}
+.q-card:active { transform: scale(.95); }
+.q-ico {
+  width: 42px; height: 42px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.q-ico .ic { width: 22px; height: 22px; }
+.q-card b { font-size: 12px; font-weight: 800; }
+.q-card small { font-size: 10.5px; color: #a89fc9; color: var(--muted, #a89fc9); font-weight: 700; }
+.q-card.glow { border-color: rgba(61,220,132,.4); box-shadow: 0 0 20px rgba(61,220,132,.12); }
+
+/* ---------- home character strip ---------- */
+.char-mini { display: flex; align-items: center; gap: 13px; }
+.cm-art {
+  width: 62px; height: 62px; border-radius: 18px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,.12);
+}
+.cm-info { flex: 1; min-width: 0; }
+.cm-name { font-size: 15.5px; font-weight: 800; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.cm-boost { font-size: 12px; font-weight: 700; color: #ffd76b; margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+.cm-boost .ic { width: 14px; height: 14px; }
+
+/* ---------- badges & chips ---------- */
+.lvl-badge {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; letter-spacing: .5px;
+  padding: 2.5px 8px; border-radius: 99px;
+  background: rgba(160,107,255,.16); color: #c9a8ff; border: 1px solid rgba(160,107,255,.4);
+}
+.rarity-tag {
+  display: inline-flex; align-items: center; font-size: 10px; font-weight: 800; letter-spacing: .6px;
+  padding: 2.5px 9px; border-radius: 99px; text-transform: uppercase;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .3px;
+  padding: 4px 10px; border-radius: 99px; border: 1px solid;
+}
+.chip .ic { width: 12px; height: 12px; }
+.chip.ok     { color: #3ddc84; border-color: rgba(61,220,132,.35); background: rgba(61,220,132,.1); }
+.chip.warn   { color: #ffc93c; border-color: rgba(255,201,60,.35); background: rgba(255,201,60,.1); }
+.chip.info   { color: #7fb1ff; border-color: rgba(127,177,255,.35); background: rgba(127,177,255,.1); }
+.chip.red    { color: #ff7d7d; border-color: rgba(255,125,125,.35); background: rgba(255,125,125,.1); }
+.chip.dim    { color: #9d93c2; border-color: rgba(157,147,194,.3); background: rgba(157,147,194,.08); }
+
+/* ---------- characters screen ---------- */
+.char-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.char-cell {
+  width: calc(50% - 6px);
+  background: #171029;
+  background: linear-gradient(170deg, rgba(255,255,255,.06), rgba(255,255,255,.025)), #140d24;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 20px; padding: 11px; position: relative;
+  display: flex; flex-direction: column; gap: 10px;
+  transition: transform .12s, border-color .25s, box-shadow .25s;
+}
+.char-cell.active { border-color: rgba(61,220,132,.55); box-shadow: 0 0 26px rgba(61,220,132,.13); }
+.char-cell.locked .cc-art { filter: grayscale(.75); opacity: .55; }
+.cc-art {
+  height: 122px; border-radius: 15px; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.cc-ribbon {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  font-size: 9px; font-weight: 800; letter-spacing: 1px;
+  padding: 3px 8px; border-radius: 99px;
+  background: rgba(10,5,20,.72); border: 1px solid rgba(255,255,255,.2); color: #fff;
+}
+.cc-ribbon.on { background: linear-gradient(135deg, #2ed380, #0e9f5c); border-color: transparent; }
+.cc-name { font-size: 14.5px; font-weight: 800; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cc-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+.cc-boost { font-size: 11.5px; font-weight: 700; color: #ffd76b; display: flex; align-items: center; gap: 5px; margin-top: 7px; }
+.cc-boost .ic { width: 13px; height: 13px; }
+.cc-pips { display: flex; gap: 4px; margin-top: 8px; }
+.cc-pips i { width: 100%; height: 4px; border-radius: 99px; background: rgba(255,255,255,.12); flex: 1; }
+.cc-actions { display: flex; gap: 7px; margin-top: 2px; }
+.cc-actions .btn { flex: 1; padding: 9px 6px; font-size: 12px; border-radius: 11px; }
+.cc-price { display: flex; align-items: center; gap: 5px; font-weight: 800; font-size: 12.5px; color: #ffd76b; }
+.cc-req { font-size: 10.5px; color: #9d93c2; font-weight: 700; margin-top: 7px; display: flex; align-items: center; gap: 5px; }
+.cc-req .ic { width: 12px; height: 12px; }
+
+/* ---------- earn screen ---------- */
+.earn-hero-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.eh-ico {
+  width: 46px; height: 46px; border-radius: 15px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(255,90,69,.25), rgba(255,157,46,.25));
+  border: 1px solid rgba(255,157,46,.35); color: #ffb45c;
+}
+.kv { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; }
+.kv span { font-size: 12.5px; font-weight: 700; color: #a89fc9; color: var(--muted, #a89fc9); }
+.kv b { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.kv-divider { height: 1px; background: rgba(255,255,255,.07); margin: 4px 0; }
+.fineprint { font-size: 11px; color: #8d84ad; line-height: 1.55; margin-top: 9px; }
+.day-chips { display: flex; gap: 6px; margin: 11px 0 4px; }
+.day-chip {
+  flex: 1; min-width: 0; text-align: center; border-radius: 13px; padding: 8px 2px 7px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09);
+}
+.day-chip span { display: block; font-size: 9.5px; font-weight: 800; color: #9d93c2; letter-spacing: .5px; }
+.day-chip b { display: block; font-size: 10.5px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.day-chip.done { background: rgba(61,220,132,.12); border-color: rgba(61,220,132,.4); }
+.day-chip.done span, .day-chip.done b { color: #3ddc84; }
+.day-chip.cur { background: rgba(255,157,46,.13); border-color: rgba(255,157,46,.55); box-shadow: 0 0 14px rgba(255,157,46,.18); animation: pulseSoft 2s ease-in-out infinite; }
+.day-chip.cur span, .day-chip.cur b { color: #ffb45c; }
+@keyframes pulseSoft { 0%,100% { box-shadow: 0 0 10px rgba(255,157,46,.14); } 50% { box-shadow: 0 0 20px rgba(255,157,46,.3); } }
+.streak-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.streak-flame {
+  width: 54px; height: 54px; border-radius: 17px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(255,138,0,.22), rgba(255,69,69,.22));
+  border: 1px solid rgba(255,120,60,.4); color: #ff9d2e;
+}
+.streak-flame .ic { width: 27px; height: 27px; }
+.streak-num { font-size: 25px; font-weight: 800; line-height: 1.1; }
+.streak-sub { font-size: 11.5px; color: #a89fc9; color: var(--muted, #a89fc9); font-weight: 700; }
+.wk { display: flex; justify-content: space-between; gap: 4px; margin-top: 12px; }
+.wk-day { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+.wk-day span { font-size: 9.5px; font-weight: 800; color: #9d93c2; letter-spacing: .3px; white-space: nowrap; }
+.wk-dot {
+  width: 100%; max-width: 34px; aspect-ratio: 1/1; height: 32px;
+  border-radius: 50%; border: 1px solid rgba(255,255,255,.14);
+  display: flex; align-items: center; justify-content: center; color: #6f668f;
+  background: rgba(255,255,255,.04);
+}
+.wk-dot .ic { width: 14px; height: 14px; }
+.wk-dot.on { background: linear-gradient(135deg, #ff8a00, #ff5a45); border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(255,110,60,.4); }
+.wk-dot.today { box-shadow: 0 0 0 2px rgba(255,157,46,.45); border-style: dashed; }
+
+/* ---------- partners screen ---------- */
+.ref-linkbox { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.ref-link {
+  flex: 1; min-width: 0; padding: 11px 13px; border-radius: 13px;
+  background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.12);
+  font-size: 12px; font-weight: 700; color: #cfc7e8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stat-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.stat {
+  flex: 1 1 30%; min-width: 92px;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px; padding: 12px 8px; text-align: center;
+}
+.stat b { display: block; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stat span { display: block; font-size: 10.5px; font-weight: 700; color: #9d93c2; margin-top: 2px; letter-spacing: .3px; }
+.tier-row { display: flex; align-items: center; gap: 12px; padding: 11px 2px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.tier-row:last-child { border-bottom: 0; }
+.tier-ico {
+  width: 36px; height: 36px; border-radius: 12px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.06); color: #9d93c2;
+}
+.tier-ico .ic { width: 18px; height: 18px; }
+.tier-row.unlocked .tier-ico { background: rgba(61,220,132,.14); color: #3ddc84; }
+.tier-row.current .tier-ico { background: rgba(255,157,46,.15); color: #ffb45c; }
+.tier-txt { flex: 1; min-width: 0; }
+.tier-txt b { display: block; font-size: 13px; font-weight: 800; }
+.tier-txt span { display: block; font-size: 11px; color: #9d93c2; font-weight: 700; margin-top: 1px; }
+.tier-val { font-size: 12.5px; font-weight: 800; color: #ffd76b; white-space: nowrap; }
+.stage-row { padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.stage-row:last-child { border-bottom: 0; }
+.step { display: flex; gap: 12px; padding: 9px 0; align-items: flex-start; }
+.step-n {
+  width: 24px; height: 24px; border-radius: 50%; flex: none; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #ff5a45, #ff9d2e); color: #fff;
+  font-size: 11.5px; font-weight: 800;
+}
+.step p { font-size: 12.5px; color: #cfc7e8; line-height: 1.5; }
+.step p b { color: #f4f1ff; }
+
+/* ---------- profile ---------- */
+.profile-hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 20px 14px 16px; }
+.profile-hero .avatar { width: 76px; height: 76px; border-radius: 26px; margin-bottom: 10px; }
+.ph-name { font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ph-id { font-size: 12px; color: #a89fc9; color: var(--muted, #a89fc9); font-weight: 700; letter-spacing: .6px; margin-top: 3px; }
+.ph-joined { font-size: 11px; color: #9d93c2; font-weight: 700; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+.ph-joined .ic { width: 13px; height: 13px; }
+.menu { padding: 2px 0; overflow: hidden; }
+.menu-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 13px 14px; background: none; border: 0; border-bottom: 1px solid rgba(255,255,255,.055);
+  color: inherit; text-align: left; font-weight: 700; font-size: 13.5px;
+  transition: background .15s;
+}
+.menu-row:last-child { border-bottom: 0; }
+.menu-row:active { background: rgba(255,255,255,.05); }
+.menu-ico {
+  width: 34px; height: 34px; border-radius: 11px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.06); color: #cfc7e8;
+}
+.menu-ico .ic { width: 17px; height: 17px; }
+.menu-row .grow { flex: 1; min-width: 0; }
+.menu-row .mval { font-size: 12px; color: #9d93c2; font-weight: 700; }
+.menu-row .chev { color: #6f668f; }
+.switch { position: relative; width: 44px; height: 25px; border-radius: 99px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.1); flex: none; transition: background .2s; }
+.switch i { position: absolute; top: 2.5px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #cfc7e8; transition: transform .2s, background .2s; }
+.switch.on { background: linear-gradient(135deg, #ff8a00, #ff5a45); border-color: transparent; }
+.switch.on i { transform: translateX(19px); background: #fff; }
+.footnote { text-align: center; font-size: 11px; color: #7d74a0; font-weight: 700; padding: 8px 12px 2px; line-height: 1.6; }
+
+/* ---------- wallet & transactions ---------- */
+.wallet-summary { text-align: center; padding: 18px 14px 14px; }
+.ws-total { font-size: 34px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums;
+  color: #ffc93c;
+  background: linear-gradient(120deg, #ffe9a8 5%, #ffc93c 45%, #ff9d2e 95%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.ws-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #9d93c2; text-transform: uppercase; }
+.tx-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.tx-row:last-child { border-bottom: 0; }
+.tx-ico { width: 38px; height: 38px; border-radius: 13px; flex: none; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.06); color: #cfc7e8; }
+.tx-ico .ic { width: 18px; height: 18px; }
+.tx-main { flex: 1; min-width: 0; }
+.tx-title { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-date { font-size: 10.5px; color: #8d84ad; font-weight: 700; margin-top: 1px; }
+.tx-amt { text-align: right; }
+.tx-amt b { display: block; font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tx-amt .chip { margin-top: 4px; }
+.pos { color: #3ddc84; } .neg { color: #ff9d9d; }
+.empty { text-align: center; padding: 26px 14px; }
+.empty .e-ico { width: 62px; height: 62px; margin: 0 auto 10px; border-radius: 20px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; color: #6f668f; }
+.empty b { display: block; font-size: 14px; font-weight: 800; }
+.empty span { display: block; font-size: 12px; color: #8d84ad; margin-top: 3px; }
+
+/* ---------- forms ---------- */
+.field { margin-bottom: 13px; }
+.field label { display: block; font-size: 11.5px; font-weight: 800; color: #b3a9d6; letter-spacing: .4px; margin-bottom: 6px; text-transform: uppercase; }
+.input {
+  width: 100%; padding: 13px 14px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.13);
+  background: rgba(0,0,0,.28); color: #f4f1ff;
+  font-size: 15px; font-weight: 700; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  -webkit-user-select: text; user-select: text;
+}
+.input:focus { border-color: rgba(255,157,46,.6); box-shadow: 0 0 0 3px rgba(255,157,46,.14); }
+.input::placeholder { color: #6f668f; font-weight: 600; }
+.seg { display: flex; gap: 8px; }
+.seg button {
+  flex: 1; padding: 11px 4px; border-radius: 13px; font-weight: 800; font-size: 12.5px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: #a89fc9;
+  transition: all .18s;
+}
+.seg button.sel { background: linear-gradient(135deg, rgba(255,90,69,.28), rgba(255,157,46,.28)); border-color: rgba(255,157,46,.6); color: #ffd76b; }
+.ferr { color: #ff8a8a; font-size: 11.5px; font-weight: 700; margin-top: 5px; display: none; }
+.ferr.show { display: block; }
+
+/* ---------- bottom navigation ---------- */
+.bottomnav {
+  position: fixed; left: 12px; right: 12px; z-index: 40;
+  bottom: 10px;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  max-width: 496px; margin: 0 auto;
+  display: flex; align-items: stretch;
+  background: rgba(19,12,32,.94);
+  background: linear-gradient(180deg, rgba(26,17,44,.97), rgba(16,10,28,.97));
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 22px; padding: 6px;
+  box-shadow: 0 16px 44px rgba(0,0,0,.55);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 2px 7px; border-radius: 16px; border: 0; background: none;
+  color: #8b82ad; transition: color .2s, background .2s, transform .12s;
+}
+.nav-item:active { transform: scale(.93); }
+.nav-item .nav-ico { display: flex; align-items: center; justify-content: center; width: 34px; height: 26px; }
+.nav-item .ic { width: 22px; height: 22px; }
+.nav-item span { font-size: 10px; font-weight: 800; letter-spacing: .2px; }
+.nav-item.active {
+  color: #ffb45c;
+  background: linear-gradient(180deg, rgba(255,150,70,.17), rgba(255,150,70,.04));
+  box-shadow: inset 0 0 0 1px rgba(255,160,80,.28);
+}
+.nav-item.active .ic { filter: drop-shadow(0 0 8px rgba(255,157,46,.55)); }
+
+/* ---------- modal ---------- */
+.modal-backdrop {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 60;
+  background: rgba(5,2,12,.74);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fadeIn .2s ease both;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  width: 100%; max-width: 520px; max-height: 84vh; overflow-y: auto;
+  background: #1a1129;
+  background: linear-gradient(180deg, #1e1435 0%, #160e26 100%);
+  border: 1px solid rgba(255,255,255,.12); border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  padding: 16px 16px 20px;
+  padding-bottom: 20px;
+  animation: slideUp .3s cubic-bezier(.2,.9,.3,1) both;
+  -webkit-overflow-scrolling: touch;
+}
+@keyframes slideUp { from { transform: translate3d(0,60px,0); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
+.modal-title { font-size: 16.5px; font-weight: 800; }
+.modal-x {
+  width: 34px; height: 34px; border-radius: 12px; flex: none;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); color: #cfc7e8;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-x .ic { width: 16px; height: 16px; }
+.modal-actions { display: flex; gap: 9px; margin-top: 15px; }
+.modal-actions .btn { flex: 1; }
+.notif-row { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,.06); align-items: flex-start; width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; color: inherit; text-align: left; }
+.notif-row:last-child { border-bottom: 0; }
+.notif-ico { width: 36px; height: 36px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.06); color: #cfc7e8; }
+.notif-ico .ic { width: 17px; height: 17px; }
+.notif-row p { font-size: 12.5px; line-height: 1.5; color: #ded8f2; }
+.notif-row p b { color: #fff; }
+
+/* ---------- toast ---------- */
+#toast-root {
+  position: fixed; left: 14px; right: 14px; z-index: 80;
+  bottom: 92px;
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  pointer-events: none;
+}
+.toast {
+  display: flex; gap: 10px; align-items: center;
+  background: rgba(30,19,48,.97);
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 14px; padding: 11px 16px;
+  font-size: 13px; font-weight: 700; color: #f4f1ff;
+  box-shadow: 0 12px 34px rgba(0,0,0,.5);
+  max-width: 420px; text-align: center;
+  animation: toastIn .26s cubic-bezier(.2,.9,.3,1) both;
+  transition: opacity .3s, transform .3s;
+}
+.toast .ic { width: 18px; height: 18px; flex: none; color: #a89fc9; }
+.toast.success { border-color: rgba(61,220,132,.45); } .toast.success .ic { color: #3ddc84; }
+.toast.error { border-color: rgba(255,125,125,.45); } .toast.error .ic { color: #ff7d7d; }
+.toast.out { opacity: 0; transform: translate3d(0,8px,0); }
+@keyframes toastIn { from { opacity: 0; transform: translate3d(0,14px,0); } to { opacity: 1; transform: none; } }
+
+/* ---------- simulated ad overlay (demo) ---------- */
+.ad-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 90;
+  background: #08040f;
+  background: radial-gradient(120% 90% at 50% 0%, #1c0f36 0%, #08040f 60%);
+  display: flex; align-items: center; justify-content: center;
+  padding: 18px; animation: fadeIn .25s both;
+}
+.ad-stage { width: 100%; max-width: 420px; }
+.ad-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 800; letter-spacing: 1.4px;
+  color: #ffcf7d; background: rgba(255,178,60,.1);
+  border: 1px dashed rgba(255,178,60,.55); border-radius: 99px;
+  padding: 5px 12px; margin-bottom: 12px;
+}
+.ad-screen {
+  position: relative; height: 220px; border-radius: 20px; overflow: hidden;
+  background: linear-gradient(135deg, #241243 0%, #4a126b 45%, #7c1d4e 100%);
+  border: 1px solid rgba(255,255,255,.14);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.ad-screen .blob { position: absolute; border-radius: 50%; }
+.ad-screen .b1 { width: 130px; height: 130px; top: -40px; left: -30px; background: radial-gradient(circle, rgba(255,138,0,.4), transparent 70%); animation: floaty 5s ease-in-out infinite; }
+.ad-screen .b2 { width: 110px; height: 110px; bottom: -30px; right: -20px; background: radial-gradient(circle, rgba(90,120,255,.4), transparent 70%); animation: floaty 6.5s ease-in-out infinite reverse; }
+.ad-screen .b3 { width: 80px; height: 80px; bottom: 20px; left: 30px; background: radial-gradient(circle, rgba(255,92,225,.35), transparent 70%); animation: floaty 7.5s ease-in-out infinite; }
+.ad-play {
+  width: 64px; height: 64px; border-radius: 50%; z-index: 1;
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.3);
+  display: flex; align-items: center; justify-content: center; color: #fff;
+}
+.ad-play .ic { width: 30px; height: 30px; }
+.ad-screen b { z-index: 1; font-size: 15px; font-weight: 800; letter-spacing: .3px; text-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.ad-screen small { z-index: 1; font-size: 11px; color: rgba(255,255,255,.75); font-weight: 700; }
+.ad-progress { height: 8px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 14px; }
+.ad-progress i { display: block; height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, #ff5a45, #ffc93c); transition: width .2s linear; }
+.ad-status { text-align: center; font-size: 13px; font-weight: 800; margin-top: 10px; color: #ffd76b; }
+.ad-note { font-size: 11px; color: #8d84ad; line-height: 1.55; text-align: center; margin-top: 10px; }
+.ad-actions { display: flex; gap: 9px; margin-top: 14px; }
+
+/* ---------- splash ---------- */
+#splash {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(130% 100% at 50% 0%, #1d1038 0%, #0b0614 62%);
+  transition: opacity .45s ease, visibility .45s;
+}
+#splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+.splash-logo {
+  width: 88px; height: 88px; border-radius: 30px;
+  background: linear-gradient(135deg, #ff5a45, #ff9d2e);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 20px 54px rgba(255,110,60,.42);
+  animation: popIn .55s cubic-bezier(.2,.9,.3,1.35) both;
+}
+@keyframes popIn { from { opacity: 0; transform: scale(.55); } to { opacity: 1; transform: scale(1); } }
+.splash-name { font-size: 24px; font-weight: 800; letter-spacing: .4px; margin-top: 6px; }
+.splash-tag { font-size: 11px; color: #a89fc9; letter-spacing: 2.6px; text-transform: uppercase; font-weight: 800; }
+.splash-bar { width: 130px; height: 5px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,.1); margin-top: 12px; }
+.splash-bar i { display: block; height: 100%; width: 42%; border-radius: 99px; background: linear-gradient(90deg, #ff5a45, #ffc93c); animation: loadSlide 1.1s ease-in-out infinite; }
+@keyframes loadSlide { 0% { transform: translateX(-120%); } 100% { transform: translateX(330%); } }
+
+/* ---------- misc ---------- */
+.ic { width: 20px; height: 20px; flex: none; }
+.ic-sm { width: 15px; height: 15px; }
+.ic-lg { width: 26px; height: 26px; }
+.muted { color: #a89fc9; color: var(--muted, #a89fc9); }
+.dim { color: #8d84ad; }
+.small { font-size: 12px; }
+.gold { color: #ffc93c; }
+.green { color: #3ddc84; }
+.red { color: #ff7d7d; }
+.center { text-align: center; }
+.mt8 { margin-top: 8px; } .mt12 { margin-top: 12px; } .mb0 { margin-bottom: 0; }
+.divider { height: 1px; background: rgba(255,255,255,.08); margin: 12px 0; }
+.demo-banner {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: rgba(255,178,60,.08); border: 1px dashed rgba(255,178,60,.4);
+  border-radius: 14px; padding: 11px 12px; margin-bottom: 12px;
+}
+.demo-banner .ic { width: 17px; height: 17px; color: #ffcf7d; flex: none; margin-top: 1px; }
+.demo-banner p { font-size: 11.5px; color: #e8d9b8; line-height: 1.55; }
+noscript { display: block; padding: 40px 20px; text-align: center; color: #ffd76b; font-weight: 700; }
+
+/* ---------- responsive ---------- */
+@media (min-width: 480px) {
+  .view { padding-left: 20px; padding-right: 20px; }
+  .char-cell { width: calc(50% - 6px); }
+}
+@media (min-width: 720px) {
+  body { overflow-y: auto; }
+  .view { max-width: 560px; padding-top: 24px; }
+  .char-grid { gap: 14px; }
+  .char-cell { width: calc(33.333% - 10px); }
+  .modal-backdrop { align-items: center; padding: 24px; }
+  .modal { border-radius: 24px; border-bottom: 1px solid rgba(255,255,255,.12); max-width: 460px; }
+}
+@media (min-width: 1024px) {
+  .view { max-width: 620px; }
+  .char-cell { width: calc(25% - 11px); }
+}
+@media (hover: hover) {
+  .card:hover, .q-card:hover, .char-cell:hover { border-color: rgba(255,255,255,.16); }
+  .btn:hover { filter: brightness(1.08); }
+  .btn-outline:hover { background: rgba(255,255,255,.06); }
+  .iconbtn:hover { background: rgba(255,255,255,.11); }
+}
+/* accessibility: reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ambient background -->
+<div class="bg-fx" aria-hidden="true"><i class="g1"></i><i class="g2"></i><i class="g3"></i></div>
+
+<!-- splash screen -->
+<div id="splash" aria-hidden="true">
+  <div class="splash-logo">
+    <svg width="56" height="56" viewBox="0 0 64 64" aria-hidden="true">
+      <defs>
+        <radialGradient id="splTom" cx="35%" cy="30%" r="80%">
+          <stop offset="0%" stop-color="#ff8a5c"/><stop offset="55%" stop-color="#ff5a45"/><stop offset="100%" stop-color="#d92e3c"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="32" cy="37" rx="23" ry="21" fill="url(#splTom)"/>
+      <ellipse cx="24" cy="29" rx="6" ry="4" fill="rgba(255,255,255,.35)"/>
+      <path d="M32 17c-1-4 1-7 4-8" stroke="#3e7d3a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <path d="M32 19c-7-6-15-4-17 2 6 3 13 2 17-2z" fill="#4caf50"/>
+      <path d="M32 19c7-6 15-4 17 2-6 3-13 2-17-2z" fill="#4caf50"/>
+    </svg>
+  </div>
+  <div class="splash-name">TomatoQuest</div>
+  <div class="splash-tag">Grow • Play • Earn</div>
+  <div class="splash-bar"><i></i></div>
+</div>
+
+<!-- app shell -->
+<div id="app">
+  <main id="view" class="view" aria-live="polite"></main>
+
+  <!-- fixed bottom navigation -->
+  <nav class="bottomnav" id="bottomnav" aria-label="Main navigation">
+    <button class="nav-item" type="button" data-action="nav" data-route="home" aria-label="Home">
+      <i class="nav-ico" data-icon="home"></i><span>Home</span>
+    </button>
+    <button class="nav-item" type="button" data-action="nav" data-route="characters" aria-label="Characters">
+      <i class="nav-ico" data-icon="magic"></i><span>Characters</span>
+    </button>
+    <button class="nav-item" type="button" data-action="nav" data-route="earn" aria-label="Earn">
+      <i class="nav-ico" data-icon="play"></i><span>Earn</span>
+    </button>
+    <button class="nav-item" type="button" data-action="nav" data-route="partners" aria-label="Partners">
+      <i class="nav-ico" data-icon="users"></i><span>Partners</span>
+    </button>
+    <button class="nav-item" type="button" data-action="nav" data-route="profile" aria-label="Profile">
+      <i class="nav-ico" data-icon="user"></i><span>Profile</span>
+    </button>
+  </nav>
+</div>
+
+<!-- overlays -->
+<div id="modal-root"></div>
+<div id="toast-root" aria-live="polite"></div>
+<div id="ad-root"></div>
+
+<noscript>TomatoQuest needs JavaScript to run. Please enable JavaScript and reload.</noscript>
+
+<script>
+"use strict";
+/* ==========================================================================
+ * TomatoQuest — earning-game web app (single file, demo build)
+ * ==========================================================================
+ * ARCHITECTURE (all inside this one file, kept modular for the future
+ * Telegram Mini App + Railway backend + Firestore integration):
+ *
+ *   APP_CONFIG ........ central, easily editable configuration
+ *   Storage ........... safe localStorage wrapper (memory fallback)
+ *   Clock ............. demo-aware time helpers
+ *   DemoState ......... DEMO-ONLY local state (localStorage)
+ *   ApiClient ......... placeholder for the future backend API (unused now)
+ *   TelegramAppBridge . placeholder bridge for the Telegram WebApp SDK
+ *   AdProvider ........ rewarded-ad interface (currently a labeled demo
+ *                      simulation — NEVER award rewards on click alone)
+ *   UserService / WalletService / CharacterService / RewardService /
+ *   ReferralService / WithdrawalService ..... business logic
+ *   UI / VIEWS / Actions .................... rendering, routing, events
+ *
+ * SECURITY MODEL
+ * -------------
+ * This file is a UI + local demo only. The browser is NEVER a source of
+ * truth. In production every value below must be computed and verified
+ * SERVER-SIDE (Railway backend -> Firestore): balances, ad completion,
+ * bonus eligibility, streaks, referral rewards, purchases, withdrawals.
+ * localStorage is trivially editable by the user and must never be
+ * trusted. No tokens, keys or secrets belong in this file.
+ *
+ * COMPATIBILITY
+ * -------------
+ * JavaScript is written in ES5 (var/function only) so it runs in old
+ * Android WebViews. No frameworks, no build step, no network requests.
+ * ========================================================================== */
+
+/* ==========================================================================
+ * 1. APP_CONFIG — central configuration
+ * --------------------------------------------------------------------------
+ * Every number the UI displays comes from here, so the future backend can
+ * push its own config down and the UI stays in sync.
+ * ========================================================================== */
+var APP_CONFIG = {
+
+  /* --- branding --- */
+  appName: "TomatoQuest",
+  tagline: "Grow • Play • Earn",
+  version: "1.0.0",
+
+  /* --- currency --- */
+  currency: { symbol: "\u09F3", code: "BDT", name: "Taka" },   /* ৳ */
+
+  /* --- rewarded ads (main earning source) --- */
+  rewardPerAd: 0.50,      /* base reward for one VERIFIED rewarded ad   */
+  dailyAdLimit: 20,       /* max rewarded ads rewarded per day          */
+  dailyTarget: 10,        /* "today's progress" daily target            */
+
+  /* --- daily bonus (7-day track) --- */
+  dailyBonus: { rewards: [0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.70] },
+
+  /* --- streak milestones (extra pending bonus when a streak hits N) --- */
+  streak: { milestones: [ { day: 3, reward: 0.15 }, { day: 7, reward: 0.50 } ] },
+
+  /* --- daily challenge --- */
+  challenge: { adsRequired: 5, reward: 0.25 },
+
+  /* --- referrals ---
+   * SECURITY: an "active" referral is one that completed a qualifying
+   * activity. This can only be determined SERVER-SIDE. The counts used by
+   * the demo UI are simulated placeholders. */
+  referral: {
+    linkBase: "https://t.me/your_bot_username?start=ref_", /* TODO: real bot username */
+    baseLimit: 10,                                         /* base withdrawal limit */
+    tiers: [                                               /* active -> withdrawal limit */
+      { active: 1,  limit: 25   },
+      { active: 3,  limit: 50   },
+      { active: 5,  limit: 100  },
+      { active: 10, limit: 300  },
+      { active: 20, limit: 1000 }
+    ],
+    bonusStages: [                                         /* staged unlock rewards */
+      { active: 5,  reward: 1  },
+      { active: 10, reward: 5  },
+      { active: 20, reward: 20 }
+    ]
+  },
+
+  /* --- wallet / withdrawals --- */
+  minimumWithdrawal: 5,
+  maxPendingWithdrawals: 1,               /* one request under review at a time */
+  withdrawalMethods: ["bKash", "Nagad", "Rocket"],
+  processingEstimate: "1\u20133 business days",  /* reviewed by our team */
+
+  /* --- characters (original placeholder roster) ---
+   * boost = bonus applied to VERIFIED ad rewards only:
+   *   boost = boostBase + (level - 1) * boostStep
+   * Characters NEVER generate money on their own. */
+  characters: [
+    { id: "novice",      name: "Novice",       tier: 0, rarity: "Common",
+      price: 0,   boostBase: 5,  boostStep: 2, maxLevel: 5, upgrades: [2, 4, 7, 10],
+      desc: "A humble garden apprentice, eager to learn.",
+      art: { robe1: "#98a2b8", robe2: "#5b6480", aura: "#a9b6d3", orb: "#dfe7f5" } },
+    { id: "apprentice",  name: "Apprentice",   tier: 1, rarity: "Uncommon",
+      price: 5,   boostBase: 10, boostStep: 2, maxLevel: 5, upgrades: [3, 6, 9, 13], requires: "novice",
+      desc: "Trained in the basics of growth magic.",
+      art: { robe1: "#3fd08a", robe2: "#1d7d55", aura: "#3ddc84", orb: "#b8ffd9" } },
+    { id: "alchemist",   name: "Alchemist",    tier: 2, rarity: "Rare",
+      price: 15,  boostBase: 15, boostStep: 3, maxLevel: 5, upgrades: [8, 14, 20, 27], requires: "apprentice",
+      desc: "Turns patience into golden harvests.",
+      art: { robe1: "#5daaff", robe2: "#2b62c9", aura: "#6db4ff", orb: "#cfe6ff" } },
+    { id: "wizard",      name: "Wizard",       tier: 3, rarity: "Epic",
+      price: 40,  boostBase: 20, boostStep: 3, maxLevel: 5, upgrades: [20, 32, 45, 58], requires: "alchemist",
+      desc: "A master of bountiful growth spells.",
+      art: { robe1: "#b07bff", robe2: "#6a35d8", aura: "#b28bff", orb: "#ecd6ff" } },
+    { id: "master",      name: "Master",       tier: 4, rarity: "Legendary",
+      price: 100, boostBase: 25, boostStep: 4, maxLevel: 5, upgrades: [50, 75, 100, 130], requires: "wizard",
+      desc: "Whispers to seeds and they listen.",
+      art: { robe1: "#ffd45c", robe2: "#e07f00", aura: "#ffd76b", orb: "#fff1c2" } },
+    { id: "grandmaster", name: "Grand Master", tier: 5, rarity: "Mythic",
+      price: 250, boostBase: 30, boostStep: 5, maxLevel: 5, upgrades: [130, 180, 230, 290], requires: "master",
+      desc: "Legend of the endless tomato fields.",
+      art: { robe1: "#ff7ce4", robe2: "#b81fd4", aura: "#ff8ae8", orb: "#ffe1f8" } }
+  ],
+
+  /* --- demo-mode settings (clearly separated) --- */
+  demo: {
+    storageKey: "tomatoquest_demo_v1",
+    adDurationSec: 5,          /* length of the SIMULATED ad            */
+    verificationDelayMs: 90000 /* pending -> verified demo simulation   */
+  },
+
+  /* --- future backend ---
+   * Leave empty until the Railway backend exists. When set, ApiClient
+   * becomes usable. NO secrets here — only a public base URL. */
+  apiBaseUrl: ""
+};
+
+/* ==========================================================================
+ * 2. Small utilities (ES5 only — old Android WebView friendly)
+ * ========================================================================== */
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+function round2(n) { return Math.round(n * 100) / 100; }
+function clamp(n, lo, hi) { return n < lo ? lo : (n > hi ? hi : n); }
+
+/* money formatter with grouping: 1234.5 -> "৳1,234.50" */
+function money(n) {
+  if (!isFinite(n)) { n = 0; }
+  var neg = n < 0;
+  var v = Math.round(Math.abs(n) * 100) / 100;
+  var parts = v.toFixed(2).split(".");
+  var ip = parts[0], grouped = "";
+  while (ip.length > 3) { grouped = "," + ip.slice(-3) + grouped; ip = ip.slice(0, ip.length - 3); }
+  grouped = ip + grouped;
+  return (neg ? "-" : "") + APP_CONFIG.currency.symbol + grouped + "." + parts[1];
+}
+
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+var UID_SEED = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function uid(prefix) {
+  var s = "";
+  for (var i = 0; i < 6; i++) { s += UID_SEED.charAt(Math.floor(Math.random() * UID_SEED.length)); }
+  return (prefix ? prefix + "-" : "") + s;
+}
+
+var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDateTime(ts) {
+  var d = new Date(ts);
+  return MONTHS[d.getMonth()] + " " + d.getDate() + ", " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+}
+function fmtDate(ts) {
+  var d = new Date(ts);
+  return MONTHS[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+}
+/* "5h 12m" style countdown for remaining time */
+function fmtDur(ms) {
+  if (ms < 0) { ms = 0; }
+  var m = Math.floor(ms / 60000);
+  var h = Math.floor(m / 60); m = m % 60;
+  if (h > 0) { return h + "h " + m + "m"; }
+  if (m > 0) { return m + "m"; }
+  return Math.max(1, Math.floor(ms / 1000)) + "s";
+}
+function msUntilMidnight(nowTs) {
+  var d = new Date(nowTs);
+  var end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0).getTime();
+  return end - nowTs;
+}
+
+/* ==========================================================================
+ * 3. Icons — original inline SVG set (no external icon library)
+ * ========================================================================== */
+var ICONS = {
+  "home":     '<path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 10.2V19a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8.8"/><path d="M10 20v-5.2h4V20"/>',
+  "magic":    '<path d="M5.5 18.5 15 9"/><path d="M15 4.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/><path d="M5 9.5l.5 1.2 1.2.5-1.2.5L5 12.9l-.5-1.2-1.2-.5 1.2-.5z"/><path d="M14.2 14.8l.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4z"/>',
+  "play":     '<circle cx="12" cy="12" r="9"/><path d="M10.2 8.6v6.8l5.6-3.4z" fill="currentColor" stroke="none"/>',
+  "users":    '<circle cx="9" cy="8.5" r="3.5"/><path d="M3.5 19.5c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/><circle cx="17" cy="9.5" r="2.6"/><path d="M16.2 14.2c2.3.2 3.9 1.6 4.4 4"/>',
+  "user":     '<circle cx="12" cy="8" r="3.6"/><path d="M5 19.5c.7-3.4 3.4-5.2 7-5.2s6.3 1.8 7 5.2"/>',
+  "bell":     '<path d="M6 9.5a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 13.5 6 9.5z"/><path d="M10 18.5a2.2 2.2 0 0 0 4 0"/>',
+  "gift":     '<rect x="4" y="8.5" width="16" height="4" rx="1"/><path d="M5.5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h10A1.5 1.5 0 0 0 18.5 19v-6.5"/><path d="M12 8.5v12"/><path d="M12 8.5S11.5 4 9 4a2.1 2.1 0 0 0 0 4.5z"/><path d="M12 8.5s.5-4.5 3-4.5a2.1 2.1 0 0 1 0 4.5z"/>',
+  "flame":    '<path d="M12 3s.5 2.8-1.6 5.1C8.4 10.2 7 11.6 7 14a5 5 0 0 0 10 0c0-1.6-.7-2.9-1.6-4-.3 1-.9 1.7-1.7 2.1C13.9 9.3 13.6 5.9 12 3z"/>',
+  "zap":      '<path d="M13 2.5 4.5 13.5H11L10 21.5l8.5-11H12z"/>',
+  "target":   '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.8"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
+  "wallet":   '<rect x="3.5" y="6" width="17" height="13" rx="3"/><path d="M15.5 12.5h5"/><path d="M16.5 3.5 7 5.7"/><circle cx="16.4" cy="12.5" r="1" fill="currentColor" stroke="none"/>',
+  "copy":     '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5.5 14.5A1.5 1.5 0 0 1 4 13V5.5A1.5 1.5 0 0 1 5.5 4H13a1.5 1.5 0 0 1 1.5 1.5"/>',
+  "check":    '<path d="M4.5 12.5l5 5L19.5 7"/>',
+  "x":        '<path d="M6 6l12 12M18 6 6 18"/>',
+  "lock":     '<rect x="5.5" y="10.5" width="13" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+  "clock":    '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  "calendar": '<rect x="4" y="5.5" width="16" height="15" rx="2.5"/><path d="M8 3.5v4M16 3.5v4M4 10.5h16"/>',
+  "star":     '<path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8L3.5 9.7l5.9-.9z"/>',
+  "coin":     '<circle cx="12" cy="12" r="8.5"/><text x="12" y="15.8" text-anchor="middle" font-size="10.5" font-weight="bold" fill="currentColor" stroke="none" font-family="sans-serif">\u09F3</text>',
+  "trend":    '<path d="M3.5 17.5 10 11l3.5 3.5 7-7"/><path d="M15.5 7.5h5v5"/>',
+  "gear":     '<path d="M4 7.5h9M17.5 7.5h2.5M4 16.5h2.5M11 16.5h9"/><circle cx="15" cy="7.5" r="2.3"/><circle cx="8" cy="16.5" r="2.3"/>',
+  "globe":    '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.6 2.3 3.9 5.2 3.9 8.5s-1.3 6.2-3.9 8.5c-2.6-2.3-3.9-5.2-3.9-8.5s1.3-6.2 3.9-8.5z"/>',
+  "shield":   '<path d="M12 3.5 5 6v5.5c0 4.6 3 7.6 7 9 4-1.4 7-4.4 7-9V6z"/><path d="M9 11.5l2.2 2.2 4-4.2"/>',
+  "help":     '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.8.3-.9 1-.9 1.8"/><circle cx="12" cy="16.6" r="0.6" fill="currentColor" stroke="none"/>',
+  "file":     '<path d="M6 3.5h8L19 8.5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M13.5 3.5v5.5H19"/><path d="M8.5 13h7M8.5 16.5h7"/>',
+  "refresh":  '<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 5v4.2h-4.2"/>',
+  "send":     '<path d="M21 3.5 3 10.5l7 2.8L13 21z"/><path d="M21 3.5 10 13.3"/>',
+  "info":     '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r="0.6" fill="currentColor" stroke="none"/>',
+  "chev-r":   '<path d="M9.5 5.5 16 12l-6.5 6.5"/>',
+  "chev-l":   '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
+  "back":     '<path d="M19 12H5.5"/><path d="M11 5.5 4.5 12 11 18.5"/>',
+  "tv":       '<rect x="3.5" y="6" width="17" height="12.5" rx="2.5"/><path d="M10 9.8v4.9l4.2-2.45z" fill="currentColor" stroke="none"/><path d="M8.5 21.5 12 18.8l3.5 2.7"/>',
+  "sparkles": '<path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>'
+};
+
+function svgIcon(name, cls) {
+  var body = ICONS[name] || ICONS["info"];
+  return '<svg class="ic' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + body + "</svg>";
+}
+
+/* ==========================================================================
+ * 4. Original artwork builders (pure inline SVG, no external assets)
+ * --------------------------------------------------------------------------
+ * These are ORIGINAL placeholder illustrations drawn with simple vectors.
+ * characterArt() renders a hooded "garden mage" tinted by rarity colors.
+ * ========================================================================== */
+function starPath(x, y, r) {
+  var k = 0.32;
+  return "M" + x + " " + (y - r) +
+    " L" + (x + r * k) + " " + (y - r * k) + " L" + (x + r) + " " + y +
+    " L" + (x + r * k) + " " + (y + r * k) + " L" + x + " " + (y + r) +
+    " L" + (x - r * k) + " " + (y + r * k) + " L" + (x - r) + " " + y +
+    " L" + (x - r * k) + " " + (y - r * k) + " Z";
+}
+
+function characterArt(ch, size) {
+  var a = (ch && ch.art) ? ch.art : { robe1: "#888", robe2: "#555", aura: "#aaa", orb: "#fff" };
+  var tier = ch ? (ch.tier || 0) : 0;
+  var gid = "ca" + (ch ? ch.id : "x");
+  var s = "";
+  s += '<svg width="' + size + '" height="' + size + '" viewBox="0 0 120 120" aria-hidden="true">';
+  s += "<defs>";
+  s += '<radialGradient id="' + gid + 'a" cx="50%" cy="42%" r="62%">' +
+       '<stop offset="0%" stop-color="' + a.aura + '" stop-opacity=".85"/>' +
+       '<stop offset="100%" stop-color="' + a.aura + '" stop-opacity="0"/></radialGradient>';
+  s += '<linearGradient id="' + gid + 'r" x1="0" y1="0" x2="1" y2="1">' +
+       '<stop offset="0%" stop-color="' + a.robe1 + '"/>' +
+       '<stop offset="100%" stop-color="' + a.robe2 + '"/></linearGradient>';
+  s += "</defs>";
+  /* aura */
+  s += '<circle cx="60" cy="58" r="52" fill="url(#' + gid + 'a)"/>';
+  /* mythic halo ring */
+  if (tier >= 5) {
+    s += '<circle cx="60" cy="58" r="46" fill="none" stroke="' + a.aura + '" stroke-opacity=".55" stroke-width="2" stroke-dasharray="3 7"/>';
+  }
+  /* body / robe */
+  s += '<path d="M60 18 C47 18 39 31 38 46 C37 61 31 72 27 92 L93 92 C89 72 83 61 82 46 C81 31 73 18 60 18 Z" ' +
+       'fill="url(#' + gid + 'r)" stroke="rgba(255,255,255,.22)" stroke-width="1.5"/>';
+  /* hood opening (shadowed face) */
+  s += '<ellipse cx="60" cy="45" rx="14.5" ry="12.5" fill="#120a1f"/>';
+  /* glowing eyes */
+  s += '<circle cx="54.5" cy="45" r="2.6" fill="' + a.orb + '"/><circle cx="65.5" cy="45" r="2.6" fill="' + a.orb + '"/>';
+  /* belt + clasp */
+  s += '<rect x="42" y="68" width="36" height="5" rx="2.5" fill="rgba(0,0,0,.35)"/>';
+  s += '<circle cx="60" cy="70.5" r="3.4" fill="' + a.orb + '" stroke="rgba(255,255,255,.5)" stroke-width="1"/>';
+  /* staff with orb (tier 1+) */
+  if (tier >= 1) {
+    s += '<path d="M91 90 86 36" stroke="rgba(255,255,255,.65)" stroke-width="3.5" stroke-linecap="round"/>';
+    s += '<circle cx="85.5" cy="31" r="11" fill="' + a.orb + '" opacity=".22"/>';
+    s += '<circle cx="85.5" cy="31" r="6.5" fill="' + a.orb + '" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>';
+  }
+  /* novice sprout (garden theme) */
+  if (tier === 0) {
+    s += '<path d="M60 18 C60 13 61 11 63 10" stroke="#4caf50" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+    s += '<path d="M61 13 C57 8 51 8 49 11 C53 14 58 14 61 13 Z" fill="#4caf50"/>';
+  }
+  /* sparkles scale with tier */
+  var stars = tier >= 5 ? [[30, 26, 3.4], [92, 58, 3], [26, 66, 2.6], [95, 20, 2.2], [40, 12, 2]] :
+              tier >= 4 ? [[32, 26, 3], [93, 55, 2.6], [38, 12, 2]] :
+              tier >= 3 ? [[33, 27, 2.8], [92, 56, 2.4]] :
+              tier >= 2 ? [[34, 28, 2.5]] : [];
+  for (var i = 0; i < stars.length; i++) {
+    s += '<path d="' + starPath(stars[i][0], stars[i][1], stars[i][2]) + '" fill="' + a.aura + '" opacity=".9"/>';
+  }
+  /* crown for master tiers */
+  if (tier >= 4) {
+    s += '<path d="M47 19 L51 10 L56 16 L60 7 L64 16 L69 10 L73 19 Z" fill="#ffd45c" stroke="rgba(120,70,0,.4)" stroke-width="1"/>';
+  }
+  s += "</svg>";
+  return s;
+}
+
+/* tomato mascot — original app logo/avatar artwork */
+function tomatoArt(size) {
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 64 64" aria-hidden="true">' +
+    '<defs><radialGradient id="tqTom' + size + '" cx="35%" cy="30%" r="80%">' +
+    '<stop offset="0%" stop-color="#ff8a5c"/><stop offset="55%" stop-color="#ff5a45"/>' +
+    '<stop offset="100%" stop-color="#d92e3c"/></radialGradient></defs>' +
+    '<ellipse cx="32" cy="37" rx="23" ry="21" fill="url(#tqTom' + size + ')"/>' +
+    '<ellipse cx="24" cy="29" rx="6" ry="4" fill="rgba(255,255,255,.35)"/>' +
+    '<path d="M32 17c-1-4 1-7 4-8" stroke="#3e7d3a" stroke-width="3.5" fill="none" stroke-linecap="round"/>' +
+    '<path d="M32 19c-7-6-15-4-17 2 6 3 13 2 17-2z" fill="#4caf50"/>' +
+    '<path d="M32 19c7-6 15-4 17 2-6 3-13 2-17-2z" fill="#4caf50"/>' +
+    '<circle cx="25.5" cy="36" r="2.6" fill="#2a0f14"/><circle cx="38.5" cy="36" r="2.6" fill="#2a0f14"/>' +
+    '<circle cx="26.3" cy="35.2" r=".9" fill="#fff"/><circle cx="39.3" cy="35.2" r=".9" fill="#fff"/>' +
+    '<path d="M26.5 42.5c1.8 2 4.2 3 5.5 3s3.7-1 5.5-3" stroke="#2a0f14" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    "</svg>";
+}
+
+/* rarity colors used by badges */
+var RARITY_COLORS = {
+  "Common":    { c: "#aab4c8", b: "rgba(170,180,200,.35)", bg: "rgba(170,180,200,.12)" },
+  "Uncommon":  { c: "#3ddc84", b: "rgba(61,220,132,.4)",   bg: "rgba(61,220,132,.12)" },
+  "Rare":      { c: "#5daaff", b: "rgba(93,170,255,.4)",   bg: "rgba(93,170,255,.12)" },
+  "Epic":      { c: "#b07bff", b: "rgba(176,123,255,.4)",  bg: "rgba(176,123,255,.12)" },
+  "Legendary": { c: "#ffd45c", b: "rgba(255,212,92,.4)",   bg: "rgba(255,212,92,.12)" },
+  "Mythic":    { c: "#ff7ce4", b: "rgba(255,124,228,.4)",  bg: "rgba(255,124,228,.12)" }
+};
+function rarityTag(rarity) {
+  var r = RARITY_COLORS[rarity] || RARITY_COLORS["Common"];
+  return '<span class="rarity-tag" style="color:' + r.c + ";border:1px solid " + r.b + ";background:" + r.bg + '">' + esc(rarity) + "</span>";
+}
+
+/* ==========================================================================
+ * 5. Clock — demo-aware time
+ * --------------------------------------------------------------------------
+ * All "day" logic (daily bonus, streaks, ad limits) runs through Clock so
+ * the DEMO admin can simulate the next day for testing.
+ *
+ * SECURITY: in production, "day" boundaries and eligibility MUST come from
+ * the server clock, never the device clock (clients can change it).
+ * ========================================================================== */
+var Clock = {
+  now: function () { return Date.now() + (AppState && AppState.demo ? AppState.demo.timeOffsetMs : 0); },
+  dayKeyAt: function (ts) {
+    var d = new Date(ts);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  },
+  todayKey: function () { return Clock.dayKeyAt(Clock.now()); },
+  yesterdayKey: function () { return Clock.dayKeyAt(Clock.now() - 86400000); },
+  /* last 7 day-keys, oldest first */
+  weekKeys: function () {
+    var out = [], t = Clock.now();
+    for (var i = 6; i >= 0; i--) { out.push(Clock.dayKeyAt(t - i * 86400000)); }
+    return out;
+  }
+};
+
+/* ==========================================================================
+ * 6. Storage — safe localStorage wrapper
+ * --------------------------------------------------------------------------
+ * Falls back to in-memory storage when localStorage is unavailable (some
+ * WebViews / private modes). NEVER use this for anything security-relevant.
+ * ========================================================================== */
+var Storage = (function () {
+  var mem = {};
+  var ok = false;
+  try {
+    var k = "__tq_test__";
+    window.localStorage.setItem(k, "1");
+    window.localStorage.removeItem(k);
+    ok = true;
+  } catch (e) { ok = false; }
+
+  return {
+    persistent: ok,
+    get: function (key, fallback) {
+      try {
+        var raw = ok ? window.localStorage.getItem(key) : (mem[key] || null);
+        if (raw === null || raw === undefined) { return fallback; }
+        return JSON.parse(raw);
+      } catch (e) { return fallback; }
+    },
+    set: function (key, value) {
+      try {
+        var raw = JSON.stringify(value);
+        if (ok) { window.localStorage.setItem(key, raw); } else { mem[key] = raw; }
+      } catch (e) { /* quota / private mode — keep going with memory copy */ }
+    },
+    remove: function (key) {
+      try { if (ok) { window.localStorage.removeItem(key); } } catch (e) {}
+      delete mem[key];
+    },
+    clearAll: function () {
+      try { if (ok) { window.localStorage.removeItem(APP_CONFIG.demo.storageKey); } } catch (e) {}
+      delete mem[APP_CONFIG.demo.storageKey];
+    }
+  };
+})();
+
+/* ==========================================================================
+ * 7. DEMO MODE — local UI state (localStorage ONLY)
+ * ==========================================================================
+ * >>> DEMO ONLY — production balances must be server-side. <<<
+ *
+ * Everything in DemoState exists purely so the interface can be tested in
+ * a browser with no backend: a demo balance, character ownership, streaks,
+ * daily claims, simulated referral counts and a demo transaction list.
+ *
+ * It is trivially editable by the user (devtools) and holds NO monetary
+ * value. In production this entire object is replaced by API calls to the
+ * Railway backend (which writes to Firestore):
+ *
+ *     Telegram Mini App -> index.html (this UI) -> Railway API -> Firestore
+ *
+ * The shape of the state intentionally mirrors what the backend will
+ * return, so swapping DemoState.load()/save() for ApiClient calls later
+ * requires no UI changes.
+ * ========================================================================== */
+var AppState = null; /* loaded by DemoState.load() */
+
+var DemoState = {
+
+  /* fresh demo state — everything starts at zero / empty (no fake earnings) */
+  defaults: function () {
+    var now = Date.now();
+    return {
+      v: 1,                                   /* state schema version       */
+      createdAt: now,
+      user: {
+        id: uid("TQ"),
+        name: "Explorer",                     /* replaced by Telegram later */
+        joinedAt: now
+      },
+      wallet: {
+        pending: 0,                           /* awaiting verification      */
+        withdrawable: 0,                      /* verified, spendable        */
+        lifetimeVerified: 0                   /* all-time verified earnings */
+      },
+      characters: {
+        activeId: "novice",
+        owned: { novice: { level: 1 } }       /* starter character is free  */
+      },
+      ads: { day: "", count: 0 },             /* daily ad counter           */
+      bonus: { lastClaimDay: "", dayIndex: 0 },/* 7-day daily bonus track   */
+      streak: {
+        current: 0, best: 0,
+        lastDay: "", startDay: "",
+        days: {},                             /* dayKey -> qualified        */
+        milestones: {}                        /* milestone day -> startDay  */
+      },
+      challenge: { day: "", claimed: false }, /* daily challenge            */
+      referral: {
+        bonusesClaimed: []                    /* claimed bonus-stage indexes*/
+      },
+      demoRef: { invited: 0, active: 0, activeToday: 0 }, /* SIMULATED counts */
+      transactions: [],                       /* demo transaction history   */
+      withdrawals: [],                        /* demo withdrawal requests   */
+      settings: { notifications: true, language: "en", lastNotifSeen: 0 },
+      demo: { timeOffsetMs: 0 }               /* DEMO admin "next day" sim  */
+    };
+  },
+
+  load: function () {
+    var saved = Storage.get(APP_CONFIG.demo.storageKey, null);
+    if (saved && saved.v === 1) {
+      /* merge with defaults so new config keys never break old saves */
+      var base = DemoState.defaults();
+      var merged = DemoState.merge(base, saved);
+      AppState = merged;
+    } else {
+      AppState = DemoState.defaults();
+      DemoState.save();
+    }
+  },
+
+  /* shallow-deep merge: saved values win, missing keys fall back */
+  merge: function (base, saved) {
+    for (var k in saved) {
+      if (!saved.hasOwnProperty(k)) { continue; }
+      if (saved[k] && typeof saved[k] === "object" && !Array.isArray(saved[k]) &&
+          base[k] && typeof base[k] === "object" && !Array.isArray(base[k])) {
+        base[k] = DemoState.merge(base[k], saved[k]);
+      } else {
+        base[k] = saved[k];
+      }
+    }
+    return base;
+  },
+
+  /* DEMO ONLY — persists local UI state to localStorage. */
+  save: function () {
+    Storage.set(APP_CONFIG.demo.storageKey, AppState);
+  },
+
+  reset: function () {
+    Storage.clearAll();
+    AppState = DemoState.defaults();
+    DemoState.save();
+  }
+};
+
+/* commit(): single helper used after every state mutation.
+ * Saves demo state and refreshes the visible UI. */
+function commit() {
+  DemoState.save();
+  UI.refresh();
+}
+
+/* ==========================================================================
+ * 8. ApiClient — placeholder for the future backend
+ * --------------------------------------------------------------------------
+ * NOT USED YET. When the Railway backend is deployed, set
+ * APP_CONFIG.apiBaseUrl (public URL only — never a secret) and replace the
+ * DemoState calls inside the services with ApiClient calls, e.g.:
+ *
+ *   WalletService.balances = function () {
+ *     return ApiClient.request("GET", "/wallet");
+ *   };
+ *
+ * All server responses must be validated here before rendering.
+ * ========================================================================== */
+var ApiClient = {
+  isConfigured: function () { return !!APP_CONFIG.apiBaseUrl; },
+
+  request: function (method, path, data) {
+    return new Promise(function (resolve, reject) {
+      if (!ApiClient.isConfigured()) {
+        reject(new Error("API not configured — this build runs in local demo mode."));
+        return;
+      }
+      /* XMLHttpRequest keeps this compatible with very old WebViews. */
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, APP_CONFIG.apiBaseUrl + path, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        /* TODO: attach the Telegram Mini App initData signature header so
+         * the backend can authenticate the user (never a raw bot token). */
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) { return; }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch (e) { reject(new Error("Bad JSON from server")); }
+          } else {
+            reject(new Error("Server error " + xhr.status));
+          }
+        };
+        xhr.send(data ? JSON.stringify(data) : null);
+      } catch (e) { reject(e); }
+    });
+  }
+};
+
+/* ==========================================================================
+ * 9. TelegramAppBridge — placeholder for the Telegram Mini App SDK
+ * --------------------------------------------------------------------------
+ * DO NOT integrate the SDK yet. When integration time comes, replace the
+ * bodies with calls to window.Telegram.WebApp (telegram-web-app.js), e.g.:
+ *
+ *   init:  function () { window.Telegram.WebApp.ready();
+ *                         window.Telegram.WebApp.expand(); },
+ *   getUser: function () { return window.Telegram.WebApp.initDataUnsafe.user; },
+ *
+ * The bridge lets the rest of the app already code against a stable
+ * interface so nothing else has to change later.
+ * ========================================================================== */
+window.TelegramAppBridge = {
+  available: false,   /* true once the real SDK is detected              */
+
+  init: function () {
+    /* TODO: load telegram-web-app.js, call Telegram.WebApp.ready(),
+     * expand() and set the header color, then set available = true. */
+  },
+
+  /* Returns the Telegram user (id, first_name, ...) or null.
+   * SECURITY: initData must be verified SERVER-SIDE via bot token before
+   * it is trusted — the client-signed payload is spoofable. */
+  getUser: function () {
+    /* TODO: return window.Telegram.WebApp.initDataUnsafe.user || null; */
+    return null;
+  },
+
+  /* Send structured data back to the bot (future flows). */
+  sendData: function (data) {
+    /* TODO: window.Telegram.WebApp.sendData(JSON.stringify(data)); */
+  },
+
+  close: function () {
+    /* TODO: window.Telegram.WebApp.close(); */
+  },
+
+  /* optional light haptics when available (graceful no-op otherwise) */
+  haptic: function () {
+    try {
+      if (window.navigator && window.navigator.vibrate) { window.navigator.vibrate(12); }
+    } catch (e) {}
+  }
+};
+
+/* ==========================================================================
+ * 10. AdProvider — rewarded ad interface
+ * ==========================================================================
+ * PLACEHOLDER INTEGRATION.
+ *
+ * TODO (production): replace AdProvider.startRewardedAd with the real
+ * rewarded-ad provider SDK (loaded together with the Telegram Mini App
+ * integration). The contract is:
+ *
+ *   startRewardedAd() -> Promise
+ *     resolves { verified: true,  token: "<network proof>" }  on completion
+ *     resolves { verified: false, reason: "closed" }          if abandoned
+ *
+ * IMPORTANT RULES
+ *  - NEVER award a reward merely because the button was clicked.
+ *  - Only resolve verified:true when the ad NETWORK confirms completion.
+ *  - The returned token must then be sent to the backend, which re-validates
+ *    it with the ad network before crediting anything (server-side truth).
+ *
+ * In this demo build there is no ad network, so a clearly-labeled SIMULATED
+ * ad player stands in: it plays a 5-second placeholder and only produces a
+ * "verified" demo token if the user completes it. It is a UI simulation,
+ * not a real advertisement.
+ * ========================================================================== */
+var AdProvider = {
+
+  startRewardedAd: function () {
+    /* TODO: replace body with the real provider, e.g.
+     *   return RealAdSDK.showRewarded(...);                         */
+    return AdProvider._demoSimulatedAd();
+  },
+
+  /* --- DEMO ONLY: simulated rewarded ad (labeled in the UI) --- */
+  _demoSimulatedAd: function () {
+    return new Promise(function (resolve) {
+      DemoAdUI.show(function (result) { resolve(result); });
+    });
+  }
+};
+
+/* ==========================================================================
+ * 11. UserService — profile & local notifications
+ * ========================================================================== */
+var UserService = {
+
+  profile: function () {
+    var tg = window.TelegramAppBridge.getUser();
+    /* When Telegram is connected, the tg user replaces the demo identity. */
+    return {
+      id: AppState.user.id,
+      name: tg ? (tg.first_name || "Player") : AppState.user.name,
+      joinedAt: AppState.user.joinedAt,
+      isTelegram: !!tg
+    };
+  },
+
+  /* Derived, local-only notification list (no fake messages from others). */
+  notifications: function () {
+    var list = [];
+    var nextDay = RewardService.nextBonusDay();
+    if (RewardService.canClaimBonus()) {
+      list.push({ icon: "gift", text: "Your <b>daily bonus</b> (Day " + nextDay + ") is ready to claim.", route: "earn" });
+    }
+    var adsLeft = RewardService.adsLeft();
+    if (adsLeft > 0) {
+      list.push({ icon: "play", text: "<b>" + adsLeft + " of " + APP_CONFIG.dailyAdLimit + "</b> ad rewards are still available today.", route: "earn" });
+    }
+    var st = AppState.streak;
+    if (st.current > 0 && st.lastDay !== Clock.todayKey()) {
+      list.push({ icon: "flame", text: "Complete an activity today to keep your <b>" + st.current + "-day streak</b> alive.", route: "earn" });
+    }
+    if (WithdrawalService.pendingCount() > 0) {
+      list.push({ icon: "wallet", text: "Your withdrawal request is <b>being reviewed</b>.", route: "wallet" });
+    }
+    list.push({ icon: "info", text: "Demo build \u2014 all data is stored locally on this device and holds no monetary value.", route: null });
+    return list;
+  },
+
+  /* red dot on the bell while the daily bonus is unclaimed */
+  hasUnread: function () {
+    return RewardService.canClaimBonus();
+  }
+};
+
+/* ==========================================================================
+ * 12. WalletService — balances, credits, transactions (DEMO)
+ * --------------------------------------------------------------------------
+ * DEMO ONLY — production balances must be server-side.
+ * The real flow: ad network -> backend verification -> Firestore credit.
+ * This local simulation mirrors that flow (pending -> verified) so the UI
+ * can be tested without a backend.
+ * ========================================================================== */
+var EARNING_TYPES = {
+  "ad_reward": true, "daily_bonus": true, "streak_bonus": true,
+  "challenge_bonus": true, "referral_bonus": true, "demo_fund": true
+};
+
+var TX_META = {
+  "ad_reward":          { label: "Ad reward",         icon: "play",   sign: +1 },
+  "daily_bonus":        { label: "Daily bonus",       icon: "gift",   sign: +1 },
+  "streak_bonus":       { label: "Streak bonus",      icon: "flame",  sign: +1 },
+  "challenge_bonus":    { label: "Challenge reward",  icon: "target", sign: +1 },
+  "referral_bonus":     { label: "Referral reward",   icon: "users",  sign: +1 },
+  "demo_fund":          { label: "Demo test funds",   icon: "coin",   sign: +1 },
+  "character_purchase": { label: "Character purchase", icon: "magic", sign: -1 },
+  "character_upgrade":  { label: "Character upgrade",  icon: "magic", sign: -1 },
+  "withdrawal":         { label: "Withdrawal",        icon: "wallet", sign: -1 }
+};
+
+var WalletService = {
+
+  balances: function () {
+    return {
+      pending: AppState.wallet.pending,
+      withdrawable: AppState.wallet.withdrawable,
+      total: round2(AppState.wallet.pending + AppState.wallet.withdrawable)
+    };
+  },
+
+  totalVerified: function () { return AppState.wallet.lifetimeVerified; },
+
+  /* today's earned total (all earning tx of today, any non-rejected status) */
+  todayEarnings: function () {
+    var k = Clock.todayKey(), t = 0, list = AppState.transactions;
+    for (var i = 0; i < list.length; i++) {
+      var tx = list[i];
+      if (tx.day === k && EARNING_TYPES[tx.type] && tx.status !== "rejected") { t += tx.amount; }
+    }
+    return round2(t);
+  },
+
+  transactions: function () { return AppState.transactions; },
+  withdrawals: function () { return AppState.withdrawals; },
+
+  _addTx: function (type, amount, status, note) {
+    AppState.transactions.unshift({
+      id: uid("TX"), ts: Clock.now(), day: Clock.todayKey(),
+      type: type, amount: round2(amount), status: status, note: note || ""
+    });
+    if (AppState.transactions.length > 150) { AppState.transactions.length = 150; }
+  },
+
+  /* Credit a reward as PENDING. It becomes withdrawable only after
+   * verification (WalletService.settle in demo; the backend in production). */
+  credit: function (type, amount, note) {
+    /* SECURITY: in production this method does not exist client-side.
+     * The backend credits the wallet AFTER it verifies the action. */
+    amount = round2(amount);
+    if (!(amount > 0)) { return; }
+    AppState.wallet.pending = round2(AppState.wallet.pending + amount);
+    WalletService._addTx(type, amount, "pending", note);
+  },
+
+  /* Spend from the withdrawable balance (character purchases etc.).
+   * SECURITY: production must re-validate funds server-side. */
+  spend: function (amount, type, note) {
+    amount = round2(amount);
+    if (AppState.wallet.withdrawable < amount) { return false; }
+    AppState.wallet.withdrawable = round2(AppState.wallet.withdrawable - amount);
+    WalletService._addTx(type, -amount, "completed", note);
+    return true;
+  },
+
+  /* DEMO simulation of backend verification: pending earnings older than
+   * APP_CONFIG.demo.verificationDelayMs become verified -> withdrawable.
+   * PRODUCTION: the backend does this; the client only polls balances. */
+  settle: function () {
+    var delay = APP_CONFIG.demo.verificationDelayMs;
+    var nowT = Clock.now(), changed = false, list = AppState.transactions;
+    for (var i = 0; i < list.length; i++) {
+      var tx = list[i];
+      if (tx.status === "pending" && EARNING_TYPES[tx.type] && (nowT - tx.ts) >= delay) {
+        tx.status = "verified";
+        AppState.wallet.pending = round2(AppState.wallet.pending - tx.amount);
+        AppState.wallet.withdrawable = round2(AppState.wallet.withdrawable + tx.amount);
+        AppState.wallet.lifetimeVerified = round2(AppState.wallet.lifetimeVerified + tx.amount);
+        changed = true;
+      }
+    }
+    if (changed) { DemoState.save(); }
+    return changed;
+  },
+
+  /* Lock funds for a withdrawal request (they stay locked until the
+   * backend completes or rejects the request). */
+  lockForWithdrawal: function (amount) {
+    amount = round2(amount);
+    if (AppState.wallet.withdrawable < amount) { return false; }
+    AppState.wallet.withdrawable = round2(AppState.wallet.withdrawable - amount);
+    return true;
+  },
+
+  /* DEMO: refund a rejected withdrawal (backend would do this server-side). */
+  refundWithdrawal: function (wd) {
+    AppState.wallet.withdrawable = round2(AppState.wallet.withdrawable + wd.amount);
+  }
+};
+
+/* ==========================================================================
+ * 13. CharacterService — roster, purchases, upgrades, boosts
+ * --------------------------------------------------------------------------
+ * Characters BOOST verified ad rewards only. They never generate money by
+ * themselves. All definitions live in APP_CONFIG.characters so the backend
+ * can own them later.
+ *
+ * SECURITY: purchases/upgrades must be validated and executed by the
+ * backend in production (funds, level caps, ownership).
+ * ========================================================================== */
+var CharacterService = {
+
+  list: function () { return APP_CONFIG.characters; },
+
+  get: function (id) {
+    var list = APP_CONFIG.characters;
+    for (var i = 0; i < list.length; i++) { if (list[i].id === id) { return list[i]; } }
+    return null;
+  },
+
+  isOwned: function (id) { return !!AppState.characters.owned[id]; },
+  level: function (id) { return AppState.characters.owned[id] ? AppState.characters.owned[id].level : 0; },
+  isActive: function (id) { return AppState.characters.activeId === id && CharacterService.isOwned(id); },
+  active: function () {
+    var def = CharacterService.get(AppState.characters.activeId);
+    return def && CharacterService.isOwned(def.id) ? def : CharacterService.get("novice");
+  },
+
+  /* current boost % of a character (base + steps per level) */
+  boostPercent: function (id) {
+    var def = CharacterService.get(id || AppState.characters.activeId);
+    if (!def) { return 0; }
+    var lvl = CharacterService.level(def.id);
+    if (lvl <= 0) { return 0; }
+    return def.boostBase + (lvl - 1) * def.boostStep;
+  },
+
+  /* cost to reach the next level (null when maxed) */
+  upgradeCost: function (id) {
+    var def = CharacterService.get(id);
+    if (!def) { return null; }
+    var lvl = CharacterService.level(id);
+    if (lvl <= 0 || lvl >= def.maxLevel) { return null; }
+    return def.upgrades[lvl - 1];
+  },
+
+  /* applies the ACTIVE character's boost to a base ad reward */
+  applyBoost: function (base) {
+    var pct = CharacterService.boostPercent();
+    return round2(base * (1 + pct / 100));
+  },
+
+  /* buy validation -> { ok, reason } */
+  canBuy: function (id) {
+    var def = CharacterService.get(id);
+    if (!def) { return { ok: false, reason: "Unknown character." }; }
+    if (CharacterService.isOwned(id)) { return { ok: false, reason: "Already unlocked." }; }
+    if (def.requires && !CharacterService.isOwned(def.requires)) {
+      var prev = CharacterService.get(def.requires);
+      return { ok: false, reason: "Unlock " + (prev ? prev.name : def.requires) + " first." };
+    }
+    if (AppState.wallet.withdrawable < def.price) {
+      return { ok: false, reason: "Not enough withdrawable balance (" + money(def.price) + " needed)." };
+    }
+    return { ok: true };
+  },
+
+  /* Buy flow — asks for confirmation first. Returns a Promise<bool>. */
+  buy: function (id) {
+    var check = CharacterService.canBuy(id);
+    if (!check.ok) {
+      UI.toast(check.reason, "error");
+      return Promise.resolve(false);
+    }
+    var def = CharacterService.get(id);
+    return UI.confirm({
+      title: "Unlock " + def.name,
+      bodyHtml:
+        '<div class="center" style="padding:6px 0 2px">' +
+          '<div style="display:inline-block;border-radius:20px;padding:8px;background:radial-gradient(circle,' + def.art.aura + '33,transparent 70%)">' + characterArt(def, 92) + "</div>" +
+        "</div>" +
+        '<div class="kv"><span>Rarity</span><b>' + rarityTag(def.rarity) + "</b></div>" +
+        '<div class="kv"><span>Ad reward boost</span><b class="gold">+' + def.boostBase + "%</b></div>" +
+        '<div class="kv"><span>Price</span><b>' + money(def.price) + "</b></div>" +
+        '<p class="fineprint">' + esc(def.desc) + " Boost applies to verified ad rewards only.</p>",
+      okText: def.price > 0 ? "Unlock \u2022 " + money(def.price) : "Unlock",
+      okClass: "btn-gold"
+    }).then(function (yes) {
+      if (!yes) { return false; }
+      /* re-check funds at execution time */
+      if (AppState.wallet.withdrawable < def.price) {
+        UI.toast("Not enough withdrawable balance.", "error");
+        return false;
+      }
+      if (def.price > 0) {
+        WalletService.spend(def.price, "character_purchase", "Unlocked " + def.name);
+      }
+      AppState.characters.owned[id] = { level: 1 };
+      AppState.characters.activeId = id;
+      commit();
+      UI.hapticOk();
+      UI.toast(def.name + " unlocked and set active!", "success");
+      return true;
+    });
+  },
+
+  upgrade: function (id) {
+    var def = CharacterService.get(id);
+    if (!def || !CharacterService.isOwned(id)) { return Promise.resolve(false); }
+    var cost = CharacterService.upgradeCost(id);
+    if (cost === null) { UI.toast("Already at max level.", "info"); return Promise.resolve(false); }
+    if (AppState.wallet.withdrawable < cost) {
+      UI.toast("Not enough withdrawable balance (" + money(cost) + " needed).", "error");
+      return Promise.resolve(false);
+    }
+    var lvl = CharacterService.level(id);
+    var newBoost = def.boostBase + lvl * def.boostStep;
+    return UI.confirm({
+      title: "Upgrade " + def.name,
+      bodyHtml:
+        '<div class="kv"><span>Level</span><b>' + lvl + " \u2192 " + (lvl + 1) + "</b></div>" +
+        '<div class="kv"><span>Ad reward boost</span><b class="gold">+' + CharacterService.boostPercent(id) + "% \u2192 +" + newBoost + "%</b></div>" +
+        '<div class="kv"><span>Cost</span><b>' + money(cost) + "</b></div>",
+      okText: "Upgrade \u2022 " + money(cost),
+      okClass: "btn-purple"
+    }).then(function (yes) {
+      if (!yes) { return false; }
+      if (AppState.wallet.withdrawable < cost) { UI.toast("Not enough withdrawable balance.", "error"); return false; }
+      WalletService.spend(cost, "character_upgrade", def.name + " \u2192 Lv " + (lvl + 1));
+      AppState.characters.owned[id].level = lvl + 1;
+      commit();
+      UI.hapticOk();
+      UI.toast(def.name + " upgraded to level " + (lvl + 1) + "!", "success");
+      return true;
+    });
+  },
+
+  setActive: function (id) {
+    if (!CharacterService.isOwned(id)) { return; }
+    AppState.characters.activeId = id;
+    var def = CharacterService.get(id);
+    commit();
+    UI.hapticOk();
+    UI.toast(def.name + " is now your active character!", "success");
+  }
+};
+
+/* ==========================================================================
+ * 14. RewardService — ads, daily bonus, streak, daily challenge
+ * --------------------------------------------------------------------------
+ * SECURITY: eligibility (ad limits, one-claim-per-day, streaks) MUST be
+ * enforced server-side in production. The client versions here exist only
+ * to drive the demo UI.
+ * ========================================================================== */
+var RewardService = {
+
+  /* roll daily counters when the (demo) day changes */
+  ensureDay: function () {
+    var today = Clock.todayKey();
+    if (AppState.ads.day !== today) { AppState.ads = { day: today, count: 0 }; }
+    if (AppState.challenge.day !== today) { AppState.challenge = { day: today, claimed: false }; }
+  },
+
+  adsToday: function () { RewardService.ensureDay(); return AppState.ads.count; },
+  adsLeft: function () { return Math.max(0, APP_CONFIG.dailyAdLimit - RewardService.adsToday()); },
+
+  /* base + active character boost */
+  adReward: function () { return CharacterService.applyBoost(APP_CONFIG.rewardPerAd); },
+
+  /* ------- rewarded ad flow ------- */
+  watchAd: function () {
+    RewardService.ensureDay();
+    if (AppState.ads.count >= APP_CONFIG.dailyAdLimit) {
+      UI.toast("Daily ad limit reached \u2014 come back tomorrow!", "info");
+      return;
+    }
+    UI.hapticOk();
+    /* AdProvider decides whether an ad really completed. We only credit
+     * after a verified result — never on button click. */
+    AdProvider.startRewardedAd().then(function (result) {
+      if (!result || !result.verified) {
+        UI.toast("Ad not completed \u2014 no reward credited.", "info");
+        UI.refresh();
+        return;
+      }
+      /* PRODUCTION: send result.token to the backend; the backend
+       * re-validates it with the ad network and credits the wallet. */
+      var amount = RewardService.adReward();
+      WalletService.credit("ad_reward", amount, "Rewarded ad (demo simulated)");
+      AppState.ads.count += 1;
+      RewardService._registerActivity();
+      commit();
+      UI.hapticOk();
+      UI.toast("+" + money(amount) + " credited as pending \u2014 pending rewards are verified before withdrawal.", "success");
+    }).catch(function () {
+      UI.toast("Ad could not be started. Please try again.", "error");
+      UI.refresh();
+    });
+  },
+
+  /* ------- daily bonus (7-day track) ------- */
+  canClaimBonus: function () {
+    return AppState.bonus.lastClaimDay !== Clock.todayKey();
+  },
+
+  /* the day (1..7) the NEXT claim will land on */
+  nextBonusDay: function () {
+    var b = AppState.bonus;
+    if (b.lastClaimDay === Clock.yesterdayKey() && b.dayIndex > 0) {
+      return (b.dayIndex % 7) + 1;
+    }
+    return 1; /* streak broken or never claimed -> restart at day 1 */
+  },
+
+  bonusRewardFor: function (day) {
+    return APP_CONFIG.dailyBonus.rewards[day - 1] || APP_CONFIG.dailyBonus.rewards[0];
+  },
+
+  claimBonus: function () {
+    if (!RewardService.canClaimBonus()) {
+      UI.toast("Daily bonus already claimed today.", "info");
+      return;
+    }
+    var day = RewardService.nextBonusDay();
+    var reward = RewardService.bonusRewardFor(day);
+    WalletService.credit("daily_bonus", reward, "Daily bonus \u2014 day " + day);
+    AppState.bonus = { lastClaimDay: Clock.todayKey(), dayIndex: day };
+    RewardService._registerActivity();
+    commit();
+    UI.hapticOk();
+    UI.toast("Day " + day + " bonus: +" + money(reward) + " (pending verification).", "success");
+  },
+
+  /* ------- streak -------
+   * A streak day only counts after a QUALIFYING action (verified ad or
+   * daily bonus claim). Refreshing the page never touches the streak. */
+  _registerActivity: function () {
+    var st = AppState.streak;
+    var today = Clock.todayKey();
+    if (st.lastDay === today) { return; } /* already qualified today */
+
+    if (st.lastDay === Clock.yesterdayKey()) {
+      st.current += 1;                    /* consecutive day */
+    } else {
+      st.current = 1;                     /* streak restarted */
+      st.startDay = today;
+    }
+    st.lastDay = today;
+    st.days[today] = true;
+    if (st.current > st.best) { st.best = st.current; }
+
+    /* milestone bonuses (credited once per streak, as pending) */
+    var ms = APP_CONFIG.streak.milestones;
+    for (var i = 0; i < ms.length; i++) {
+      if (st.current === ms[i].day && st.milestones[String(ms[i].day)] !== st.startDay) {
+        st.milestones[String(ms[i].day)] = st.startDay;
+        WalletService.credit("streak_bonus", ms[i].reward, ms[i].day + "-day streak bonus");
+        UI.toast(ms[i].day + "-day streak! +" + money(ms[i].reward) + " bonus.", "success");
+      }
+    }
+  },
+
+  streakQualifiedToday: function () {
+    return AppState.streak.lastDay === Clock.todayKey();
+  },
+
+  /* ------- daily challenge ------- */
+  challenge: function () {
+    RewardService.ensureDay();
+    return {
+      count: AppState.ads.count,
+      required: APP_CONFIG.challenge.adsRequired,
+      done: AppState.ads.count >= APP_CONFIG.challenge.adsRequired,
+      claimed: AppState.challenge.claimed
+    };
+  },
+
+  claimChallenge: function () {
+    var c = RewardService.challenge();
+    if (c.claimed) { UI.toast("Challenge reward already claimed today.", "info"); return; }
+    if (!c.done) { UI.toast("Watch " + (c.required - c.count) + " more ad(s) to complete the challenge.", "info"); return; }
+    WalletService.credit("challenge_bonus", APP_CONFIG.challenge.reward, "Daily challenge completed");
+    AppState.challenge.claimed = true;
+    commit();
+    UI.hapticOk();
+    UI.toast("Challenge complete: +" + money(APP_CONFIG.challenge.reward) + " (pending verification).", "success");
+  }
+};
+
+/* ==========================================================================
+ * 15. ReferralService — link, tiers, staged bonuses (simulated counts)
+ * --------------------------------------------------------------------------
+ * SECURITY: referral counts, "active" status and referral rewards are
+ * backend-only data in production. AppState.demoRef holds SIMULATED
+ * numbers so the tier UI can be tested locally.
+ * ========================================================================== */
+var ReferralService = {
+
+  link: function () {
+    return APP_CONFIG.referral.linkBase + AppState.user.id.replace("TQ-", "").toLowerCase();
+  },
+
+  /* SIMULATED stats for UI testing (all start at zero) */
+  stats: function () {
+    return {
+      invited: AppState.demoRef.invited,
+      active: AppState.demoRef.active,
+      activeToday: AppState.demoRef.activeToday
+    };
+  },
+
+  /* total earned from referrals (derived from transactions) */
+  earnings: function () {
+    var t = 0, list = AppState.transactions;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].type === "referral_bonus" && list[i].status !== "rejected") { t += list[i].amount; }
+    }
+    return round2(t);
+  },
+
+  /* current withdrawal limit + next tier */
+  limitInfo: function () {
+    var tiers = APP_CONFIG.referral.tiers;
+    var active = AppState.demoRef.active;
+    var current = APP_CONFIG.referral.baseLimit, next = null;
+    for (var i = 0; i < tiers.length; i++) {
+      if (active >= tiers[i].active) { current = tiers[i].limit; }
+      else { next = tiers[i]; break; }
+    }
+    return { current: current, next: next, active: active };
+  },
+
+  tiers: function () {
+    var tiers = APP_CONFIG.referral.tiers, active = AppState.demoRef.active, out = [];
+    for (var i = 0; i < tiers.length; i++) {
+      out.push({
+        tier: tiers[i],
+        unlocked: active >= tiers[i].active,
+        current: (i === 0) ? (active >= tiers[i].active && (tiers.length === 1 || active < tiers[1].active))
+                 : (active >= tiers[i].active && (i + 1 >= tiers.length || active < tiers[i + 1].active))
+      });
+    }
+    return out;
+  },
+
+  stages: function () {
+    var stages = APP_CONFIG.referral.bonusStages, active = AppState.demoRef.active, out = [];
+    for (var i = 0; i < stages.length; i++) {
+      var claimed = AppState.referral.bonusesClaimed.indexOf(i) !== -1;
+      out.push({
+        index: i, stage: stages[i],
+        unlocked: active >= stages[i].active,
+        claimed: claimed,
+        canClaim: active >= stages[i].active && !claimed
+      });
+    }
+    return out;
+  },
+
+  claimStage: function (index) {
+    var all = ReferralService.stages();
+    var s = all[index];
+    if (!s) { return; }
+    if (!s.unlocked) { UI.toast("Reach " + s.stage.active + " active referrals to unlock this reward.", "info"); return; }
+    if (s.claimed) { UI.toast("This referral reward was already claimed.", "info"); return; }
+    WalletService.credit("referral_bonus", s.stage.reward, "Referral bonus \u2014 " + s.stage.active + " active friends");
+    AppState.referral.bonusesClaimed.push(index);
+    commit();
+    UI.hapticOk();
+    UI.toast("+" + money(s.stage.reward) + " referral bonus (pending verification).", "success");
+  }
+};
+
+/* ==========================================================================
+ * 16. WithdrawalService — requests & validation (DEMO)
+ * --------------------------------------------------------------------------
+ * The frontend only CREATES a request. It NEVER marks a withdrawal as
+ * paid/completed — that happens in the backend/admin after review.
+ * DEMO: requests stay "Pending" until the demo admin simulates a decision.
+ * ========================================================================== */
+var WithdrawalService = {
+
+  draft: { method: "bKash", account: "", amount: "" }, /* in-memory form state */
+
+  pendingCount: function () {
+    var n = 0, list = AppState.withdrawals;
+    for (var i = 0; i < list.length; i++) { if (list[i].status === "pending") { n++; } }
+    return n;
+  },
+
+  history: function () { return AppState.withdrawals; },
+
+  validate: function (form) {
+    var errors = {};
+    if (!form.method || APP_CONFIG.withdrawalMethods.indexOf(form.method) === -1) {
+      errors.method = "Choose a withdrawal method.";
+    }
+    if (!/^[0-9]{11,14}$/.test(String(form.account).replace(/[\s-]/g, ""))) {
+      errors.account = "Enter a valid account / mobile number (11\u201314 digits).";
+    }
+    var amt = round2(parseFloat(form.amount));
+    if (!(amt > 0) || isNaN(amt)) { errors.amount = "Enter an amount."; }
+    else if (amt < APP_CONFIG.minimumWithdrawal) { errors.amount = "Minimum withdrawal is " + money(APP_CONFIG.minimumWithdrawal) + "."; }
+    else if (amt > AppState.wallet.withdrawable) { errors.amount = "Amount exceeds your withdrawable balance."; }
+    else if (amt > ReferralService.limitInfo().current) { errors.amount = "Above your current withdrawal limit (" + money(ReferralService.limitInfo().current) + ")."; }
+    if (WithdrawalService.pendingCount() >= APP_CONFIG.maxPendingWithdrawals) {
+      errors.global = "You already have a withdrawal under review. Please wait for it to be processed.";
+    }
+    return errors;
+  },
+
+  /* Creates the request after user confirmation. Returns Promise<bool>. */
+  request: function (form) {
+    var errors = WithdrawalService.validate(form);
+    var hasError = false, k;
+    for (k in errors) { if (errors.hasOwnProperty(k)) { hasError = true; } }
+    if (hasError) { return Promise.resolve({ ok: false, errors: errors }); }
+
+    var amt = round2(parseFloat(form.amount));
+    var masked = String(form.account).replace(/[\s-]/g, "");
+    masked = masked.slice(0, 3) + "\u2022\u2022\u2022\u2022\u2022" + masked.slice(-3);
+
+    return UI.confirm({
+      title: "Confirm withdrawal",
+      bodyHtml:
+        '<div class="kv"><span>Method</span><b>' + esc(form.method) + "</b></div>" +
+        '<div class="kv"><span>Account</span><b>' + masked + "</b></div>" +
+        '<div class="kv"><span>Amount</span><b class="gold">' + money(amt) + "</b></div>" +
+        '<div class="kv"><span>Processing</span><b>' + APP_CONFIG.processingEstimate + "</b></div>" +
+        '<p class="fineprint">Requests are reviewed by our team. This demo build cannot send real payments \u2014 the request will stay <b>Pending</b> until the (future) backend processes it.</p>',
+      okText: "Submit request",
+      okClass: "btn-green"
+    }).then(function (yes) {
+      if (!yes) { return { ok: false, errors: {} }; }
+      /* re-validate at execution time (funds may have changed) */
+      var errs = WithdrawalService.validate(form);
+      var bad = false, kk;
+      for (kk in errs) { if (errs.hasOwnProperty(kk)) { bad = true; } }
+      if (bad) { return { ok: false, errors: errs }; }
+
+      if (!WalletService.lockForWithdrawal(amt)) {
+        return { ok: false, errors: { amount: "Not enough withdrawable balance." } };
+      }
+      var wd = {
+        id: uid("WD"), ts: Clock.now(),
+        method: form.method, account: String(form.account).replace(/[\s-]/g, ""),
+        amount: amt, status: "pending"
+      };
+      AppState.withdrawals.unshift(wd);
+      WalletService._addTx("withdrawal", -amt, "pending", form.method + " \u2022 " + masked);
+      /* PRODUCTION: POST this request to the backend; the backend owns
+       * validation, fund locking and payout. Never mark it paid here. */
+      commit();
+      UI.hapticOk();
+      return { ok: true, wd: wd };
+    });
+  },
+
+  /* DEMO ADMIN ONLY: simulate the backend decision on a pending request. */
+  decide: function (wdId, decision) {
+    var list = AppState.withdrawals;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === wdId && list[i].status === "pending") {
+        list[i].status = decision; /* "completed" | "rejected" */
+        if (decision === "rejected") { WalletService.refundWithdrawal(list[i]); }
+        /* keep the matching withdrawal transaction in sync (display only) */
+        var txs = AppState.transactions;
+        for (var t = 0; t < txs.length; t++) {
+          if (txs[t].type === "withdrawal" && txs[t].status === "pending" && Math.abs(txs[t].ts - list[i].ts) < 1500) {
+            txs[t].status = (decision === "completed") ? "completed" : "rejected";
+          }
+        }
+        DemoState.save();
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+/* ==========================================================================
+ * 17. DemoAdmin — hidden DEMO-ONLY testing tools
+ * ==========================================================================
+ * >>> DEMO ADMIN ONLY — NOT FOR PRODUCTION <<<
+ *
+ * Hidden behind 5 taps on the version label in Profile. These actions exist
+ * purely so UI states (verification, referrals, day rollover, withdrawal
+ * decisions) can be tested without a backend. A real admin panel will be a
+ * separate, secure backend dashboard.
+ * ========================================================================== */
+var DemoAdmin = {
+
+  open: function () {
+    var wd = null, list = AppState.withdrawals;
+    for (var i = 0; i < list.length; i++) { if (list[i].status === "pending") { wd = list[i]; break; } }
+    var offsetH = Math.round(AppState.demo.timeOffsetMs / 3600000);
+
+    /* small builder keeps the quote nesting readable */
+    function btn(action, icon, label, decision) {
+      return '<button class="btn btn-outline btn-block btn-sm" type="button" data-action="' + action + '"' +
+        (decision ? ' data-decision="' + decision + '"' : "") +
+        ' style="margin-bottom:8px">' + svgIcon(icon, "ic-sm") + " " + label + "</button>";
+    }
+
+    var buttons = [];
+    buttons.push(btn("demo-fund", "coin", "Add " + money(20) + " demo funds (pending)"));
+    buttons.push(btn("demo-verify", "check", "Force-verify all pending earnings"));
+    buttons.push(btn("demo-nextday", "clock", "Simulate next day (+24h clock)"));
+    buttons.push(btn("demo-ref-add", "users", "Add 1 simulated active referral"));
+    buttons.push(btn("demo-ref-activity", "trend", "Simulate referral activity today"));
+    if (wd) {
+      buttons.push(btn("demo-wd-decide", "check", "Mark withdrawal " + wd.id + " completed", "completed"));
+      buttons.push(btn("demo-wd-decide", "x", "Reject withdrawal " + wd.id, "rejected"));
+    }
+    buttons.push(btn("demo-time-reset", "refresh", "Reset demo clock"));
+
+    var bodyHtml =
+      '<div class="demo-banner">' + svgIcon("info") +
+        "<p><b>DEMO ADMIN ONLY \u2014 NOT FOR PRODUCTION.</b><br>Local testing tools for this demo build. Real admin controls will live on a secure backend dashboard.</p>" +
+      "</div>" +
+      '<div class="kv"><span>Demo clock offset</span><b>' + (offsetH === 0 ? "none" : "+" + offsetH + "h") + "</b></div>" +
+      '<div class="kv"><span>Pending withdrawals</span><b>' + WithdrawalService.pendingCount() + "</b></div>" +
+      '<div class="divider"></div>' +
+      buttons.join("") +
+      '<button class="btn btn-block btn-sm" type="button" data-action="demo-reset" ' +
+        'style="background:rgba(255,93,93,.16);border:1px solid rgba(255,93,93,.4);color:#ff9d9d">' +
+        svgIcon("x", "ic-sm") + " Reset ALL demo data</button>";
+
+    UI.openModal({ title: "Demo admin tools", bodyHtml: bodyHtml, onClose: null });
+  },
+
+  /* individual demo actions (all clearly demo-only) */
+  fund: function () {
+    /* DEMO ONLY — adds simulated pending funds for UI testing. */
+    WalletService.credit("demo_fund", 20, "Demo admin test funds");
+    commit();
+    UI.toast("Demo funds added (pending verification).", "success");
+  },
+
+  verify: function () {
+    var list = AppState.transactions, n = 0;
+    for (var i = 0; i < list.length; i++) {
+      var tx = list[i];
+      if (tx.status === "pending" && EARNING_TYPES[tx.type]) {
+        tx.status = "verified";
+        AppState.wallet.pending = round2(AppState.wallet.pending - tx.amount);
+        AppState.wallet.withdrawable = round2(AppState.wallet.withdrawable + tx.amount);
+        AppState.wallet.lifetimeVerified = round2(AppState.wallet.lifetimeVerified + tx.amount);
+        n++;
+      }
+    }
+    DemoState.save();
+    UI.refresh();
+    UI.toast(n ? n + " pending reward(s) verified." : "Nothing pending.", "success");
+  },
+
+  nextDay: function () {
+    AppState.demo.timeOffsetMs += 86400000;
+    DemoState.save();
+    RewardService.ensureDay();
+    UI.refresh();
+    UI.toast("Demo clock moved +24h \u2014 daily limits & bonuses reset.", "success");
+  },
+
+  timeReset: function () {
+    AppState.demo.timeOffsetMs = 0;
+    DemoState.save();
+    UI.refresh();
+    UI.toast("Demo clock reset.", "info");
+  },
+
+  addReferral: function () {
+    AppState.demoRef.invited += 1;
+    AppState.demoRef.active += 1;
+    AppState.demoRef.activeToday += 1;
+    DemoState.save();
+    UI.refresh();
+    UI.toast("Simulated active referral added (demo data).", "success");
+  },
+
+  refActivity: function () {
+    AppState.demoRef.activeToday += 1;
+    WalletService.credit("referral_bonus", 0.10, "Simulated referral activity (demo)");
+    DemoState.save();
+    UI.refresh();
+    UI.toast("Simulated referral activity: +\u09F30.10 pending (demo).", "success");
+  },
+
+  decideLatest: function (decision) {
+    var list = AppState.withdrawals, wd = null;
+    for (var i = 0; i < list.length; i++) { if (list[i].status === "pending") { wd = list[i]; break; } }
+    if (!wd) { UI.toast("No pending withdrawal.", "info"); return; }
+    WithdrawalService.decide(wd.id, decision);
+    UI.refresh();
+    UI.toast("Withdrawal " + wd.id + " marked " + decision + " (demo simulation).", decision === "completed" ? "success" : "info");
+  },
+
+  resetAll: function () {
+    UI.confirm({
+      title: "Reset demo data?",
+      bodyHtml: '<p class="small" style="color:#cfc7e8">This clears every locally stored demo value (balance, characters, streaks, history) on this device and restarts the app.</p>',
+      okText: "Reset everything",
+      okClass: "btn-primary"
+    }).then(function (yes) {
+      if (!yes) { return; }
+      DemoState.reset();
+      try { window.location.hash = "#/home"; } catch (e) {}
+      window.location.reload();
+    });
+  }
+};
+
+/* ==========================================================================
+ * 18. UI — rendering core, router, modals, toasts, counters
+ * ==========================================================================
+ * - Hash-based routing (#/home, #/characters, ...) so the browser back
+ *   button behaves naturally.
+ * - One delegated click listener for the whole app (no listener leaks).
+ * - Views are re-rendered only on navigation or state changes.
+ * ========================================================================== */
+var UI = {
+
+  route: "home",
+  tab: "home",          /* highlighted bottom-nav tab (sub-routes keep it) */
+  _lastVals: {},        /* previous counter values (for animations)        */
+  _renderedDay: "",     /* detect day rollover while app is open           */
+  _confirmResolve: null,
+  els: {},
+
+  init: function () {
+    UI.els.view = document.getElementById("view");
+    UI.els.nav = document.getElementById("bottomnav");
+    UI.els.modalRoot = document.getElementById("modal-root");
+    UI.els.toastRoot = document.getElementById("toast-root");
+    UI.els.adRoot = document.getElementById("ad-root");
+    UI.els.splash = document.getElementById("splash");
+
+    /* inject icons into the static bottom nav */
+    var icons = UI.els.nav.querySelectorAll("[data-icon]");
+    for (var i = 0; i < icons.length; i++) {
+      icons[i].innerHTML = svgIcon(icons[i].getAttribute("data-icon"));
+    }
+
+    /* single delegated click listener for the whole document */
+    document.addEventListener("click", function (ev) {
+      var node = ev.target, hit = null;
+      while (node && node !== document.body) {
+        if (node.getAttribute) {
+          var a = node.getAttribute("data-action");
+          if (a) { hit = { el: node, action: a }; break; }
+        }
+        node = node.parentNode;
+      }
+      if (!hit) { return; }
+      if (ev.preventDefault) { ev.preventDefault(); }
+      var fn = Actions[hit.action];
+      if (fn) { fn(hit.el, ev); }
+    });
+
+    /* close modal on Escape / backdrop */
+    document.addEventListener("keydown", function (ev) {
+      if ((ev.key === "Escape" || ev.keyCode === 27) && UI.els.modalRoot.firstChild) { UI.closeModal(); }
+    });
+
+    /* router */
+    window.addEventListener("hashchange", function () { UI.onHashChange(); });
+
+    /* light periodic tick: settle pending demo rewards, refresh countdowns,
+       and roll daily counters if the day changed while the app was open. */
+    setInterval(function () {
+      RewardService.ensureDay();
+      if (Clock.todayKey() !== UI._renderedDay) {
+        UI.render(UI.route, true);
+      } else if (WalletService.settle()) {
+        UI.refresh();
+      } else {
+        UI.tickCountdowns();
+      }
+    }, 15000);
+
+    UI.onHashChange(true);
+    setTimeout(function () {
+      if (UI.els.splash) {
+        UI.els.splash.className = "hide";
+        setTimeout(function () { if (UI.els.splash && UI.els.splash.parentNode) { UI.els.splash.parentNode.removeChild(UI.els.splash); } }, 600);
+      }
+    }, 950);
+  },
+
+  /* ---------- routing ---------- */
+  navigate: function (route) {
+    if (!VIEWS[route]) { route = "home"; }
+    if (("#/" + route) === window.location.hash) { UI.render(route, true); return; }
+    window.location.hash = "#/" + route; /* hashchange triggers render */
+  },
+  onHashChange: function (first) {
+    var h = (window.location.hash || "#/home").replace("#/", "");
+    var route = VIEWS[h] ? h : "home";
+    if (["home", "characters", "earn", "partners", "profile"].indexOf(route) !== -1) {
+      UI.tab = route;
+    }
+    UI.render(route, true);
+    if (!first) { try { window.scrollTo(0, 0); } catch (e) {} }
+  },
+
+  render: function (route, animate) {
+    if (UI.route !== route) { UI._prevRoute = UI.route; } /* for the in-app back button */
+    UI.route = route;
+    UI._renderedDay = Clock.todayKey();
+    var html = VIEWS[route]();
+    UI.els.view.className = "view" + (animate ? " anim" : "");
+    UI.els.view.innerHTML = html;
+
+    /* bottom-nav highlight */
+    var items = UI.els.nav.children;
+    for (var i = 0; i < items.length; i++) {
+      var on = items[i].getAttribute("data-route") === UI.tab;
+      items[i].className = "nav-item" + (on ? " active" : "");
+    }
+    UI.animateCounters();
+    UI.tickCountdowns();
+  },
+
+  /* re-render current view without replaying the entrance animation */
+  refresh: function () {
+    if (!UI.els.view) { return; }
+    var y = window.pageYOffset || 0;
+    UI.render(UI.route, false);
+    try { window.scrollTo(0, y); } catch (e) {}
+  },
+
+  /* ---------- animated number counters ---------- */
+  animateCounters: function () {
+    var els = UI.els.view.querySelectorAll("[data-count]");
+    for (var i = 0; i < els.length; i++) {
+      (function (el) {
+        var key = el.getAttribute("data-count");
+        var val = parseFloat(el.getAttribute("data-val")) || 0;
+        var prev = UI._lastVals[key];
+        UI._lastVals[key] = val;
+        if (prev === undefined || prev === val || Math.abs(val - prev) < 0.005) {
+          el.textContent = money(val);
+          return;
+        }
+        var t0 = Date.now(), dur = 650, from = prev, to = val;
+        function step() {
+          var p = Math.min(1, (Date.now() - t0) / dur);
+          var e = 1 - Math.pow(1 - p, 3); /* ease-out cubic */
+          el.textContent = money(from + (to - from) * e);
+          if (p < 1 && window.requestAnimationFrame) { window.requestAnimationFrame(step); }
+          else { el.textContent = money(to); }
+        }
+        if (window.requestAnimationFrame) { window.requestAnimationFrame(step); } else { step(); }
+      })(els[i]);
+    }
+  },
+
+  /* elements with data-countdown="<targetTs>" show remaining time */
+  tickCountdowns: function () {
+    var els = document.querySelectorAll("[data-countdown]");
+    var nowT = Clock.now();
+    for (var i = 0; i < els.length; i++) {
+      var target = parseInt(els[i].getAttribute("data-countdown"), 10);
+      if (target > nowT) { els[i].textContent = fmtDur(target - nowT); }
+      else if (els[i].getAttribute("data-cd-done")) { els[i].textContent = els[i].getAttribute("data-cd-done"); }
+    }
+  },
+
+  /* ---------- toasts ---------- */
+  toast: function (msg, type) {
+    if (!UI.els.toastRoot) { return; }
+    var t = document.createElement("div");
+    t.className = "toast " + (type || "info");
+    var icon = type === "success" ? "check" : (type === "error" ? "x" : "info");
+    t.innerHTML = svgIcon(icon) + "<span>" + msg + "</span>";
+    UI.els.toastRoot.appendChild(t);
+    while (UI.els.toastRoot.children.length > 3) {
+      UI.els.toastRoot.removeChild(UI.els.toastRoot.firstChild);
+    }
+    setTimeout(function () {
+      t.className += " out";
+      setTimeout(function () { if (t.parentNode) { t.parentNode.removeChild(t); } }, 320);
+    }, 2700);
+  },
+
+  hapticOk: function () { window.TelegramAppBridge.haptic(); },
+
+  /* ---------- modal ---------- */
+  openModal: function (opts) {
+    var html =
+      '<div class="modal-backdrop" data-modal-backdrop="1">' +
+        '<div class="modal" role="dialog" aria-label="' + esc(opts.title || "") + '">' +
+          '<div class="modal-head"><div class="modal-title">' + esc(opts.title || "") + "</div>" +
+          '<button class="modal-x" type="button" data-action="modal-close" aria-label="Close">' + svgIcon("x") + "</button></div>" +
+          '<div class="modal-body">' + (opts.bodyHtml || "") + "</div>" +
+        "</div>" +
+      "</div>";
+    UI.els.modalRoot.innerHTML = html;
+    /* backdrop click closes (clicks inside the sheet are stopped above) */
+    UI.els.modalRoot.firstChild.addEventListener("click", function (ev) {
+      if (ev.target === this) { UI.closeModal(); }
+    });
+  },
+
+  closeModal: function () {
+    UI.els.modalRoot.innerHTML = "";
+    if (UI._confirmResolve) {
+      var r = UI._confirmResolve; UI._confirmResolve = null; r(false);
+    }
+  },
+
+  /* promise-based confirmation dialog */
+  confirm: function (opts) {
+    return new Promise(function (resolve) {
+      UI._confirmResolve = resolve;
+      var html =
+        '<div class="modal-backdrop" data-modal-backdrop="1">' +
+          '<div class="modal" role="dialog" aria-label="' + esc(opts.title || "") + '">' +
+            '<div class="modal-head"><div class="modal-title">' + esc(opts.title || "") + "</div>" +
+            '<button class="modal-x" type="button" data-action="confirm-cancel" aria-label="Cancel">' + svgIcon("x") + "</button></div>" +
+            '<div class="modal-body">' + (opts.bodyHtml || "") + "</div>" +
+            '<div class="modal-actions">' +
+              '<button class="btn btn-outline" type="button" data-action="confirm-cancel">Cancel</button>' +
+              '<button class="btn ' + (opts.okClass || "btn-primary") + '" type="button" data-action="confirm-ok">' + esc(opts.okText || "Confirm") + "</button>" +
+            "</div>" +
+          "</div>" +
+        "</div>";
+      UI.els.modalRoot.innerHTML = html;
+      UI.els.modalRoot.firstChild.addEventListener("click", function (ev) {
+        if (ev.target === this) { UI.closeModal(); }
+      });
+    });
+  }
+};
+
+/* ==========================================================================
+ * 19. DemoAdUI — the labeled, SIMULATED rewarded-ad player (DEMO ONLY)
+ * --------------------------------------------------------------------------
+ * Stands in for the real ad network so the reward flow can be tested.
+ * The user must let the placeholder run to the end and press "Collect" —
+ * closing early pays nothing (mirrors real rewarded-ad behavior).
+ * ========================================================================== */
+var DemoAdUI = {
+  _timer: null,
+  _cb: null,
+
+  show: function (callback) {
+    if (DemoAdUI._cb) { callback({ verified: false, reason: "busy" }); return; }
+    DemoAdUI._cb = callback;
+    var secs = APP_CONFIG.demo.adDurationSec;
+    var reward = RewardService.adReward();
+
+    UI.els.adRoot.innerHTML =
+      '<div class="ad-overlay">' +
+        '<div class="ad-stage">' +
+          '<span class="ad-badge">' + svgIcon("tv", "ic-sm") + " DEMO AD SIMULATION \u2014 NO REAL AD NETWORK</span>" +
+          '<div class="ad-screen">' +
+            '<i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i>' +
+            '<div class="ad-play">' + svgIcon("play", "ic-lg") + "</div>" +
+            "<b>Simulated rewarded ad</b>" +
+            "<small>Placeholder creative \u2014 for integration testing only</small>" +
+          "</div>" +
+          '<div class="ad-progress"><i id="ad-progress-bar"></i></div>' +
+          '<div class="ad-status" id="ad-status">Reward unlocks in <span id="ad-count">0:0' + secs + "</span></div>" +
+          '<p class="ad-note">In production this screen plays a real rewarded ad from the ad provider, and the reward is only credited after the backend verifies completion.</p>' +
+          '<div class="ad-actions">' +
+            '<button class="btn btn-outline" type="button" data-action="ad-cancel">' + svgIcon("x", "ic-sm") + " Close \u2022 no reward</button>" +
+            '<button class="btn btn-gold" type="button" data-action="ad-collect" id="ad-collect-btn" disabled>' + svgIcon("gift", "ic-sm") + " Collect " + money(reward) + "</button>" +
+          "</div>" +
+        "</div>" +
+      "</div>";
+
+    var start = Date.now(), total = secs * 1000;
+    DemoAdUI._timer = setInterval(function () {
+      var elapsed = Date.now() - start;
+      var p = Math.min(1, elapsed / total);
+      var bar = document.getElementById("ad-progress-bar");
+      var count = document.getElementById("ad-count");
+      var status = document.getElementById("ad-status");
+      var btn = document.getElementById("ad-collect-btn");
+      if (bar) { bar.style.width = Math.round(p * 100) + "%"; }
+      if (p >= 1) {
+        clearInterval(DemoAdUI._timer); DemoAdUI._timer = null;
+        if (count) { count.textContent = "0:00"; }
+        if (status) { status.innerHTML = "Simulated ad completed \u2014 collect your reward"; }
+        if (btn) { btn.disabled = false; }
+      } else if (count) {
+        var left = Math.ceil((total - elapsed) / 1000);
+        count.textContent = "0:" + pad2(left);
+      }
+    }, 200);
+  },
+
+  _finish: function (result) {
+    if (DemoAdUI._timer) { clearInterval(DemoAdUI._timer); DemoAdUI._timer = null; }
+    var cb = DemoAdUI._cb;
+    DemoAdUI._cb = null;
+    UI.els.adRoot.innerHTML = "";
+    if (cb) { cb(result); }
+  }
+};
+
+/* ==========================================================================
+ * 20. Shared template helpers
+ * ========================================================================== */
+function statusChip(status) {
+  var map = {
+    pending:   ["clock", "warn", "Pending"],
+    verified:  ["check", "info", "Verified"],
+    completed: ["check", "ok",   "Completed"],
+    rejected:  ["x",     "red",  "Rejected"]
+  };
+  var m = map[status] || ["info", "dim", status];
+  return '<span class="chip ' + m[1] + '">' + svgIcon(m[0]) + " " + m[2] + "</span>";
+}
+
+function progressBar(pct, extra) {
+  return '<div class="bar' + (extra ? " " + extra : "") + '"><div class="bar-fill' + (extra ? " " + extra : "") + '" style="width:' + clamp(Math.round(pct), 0, 100) + '%"></div></div>';
+}
+
+function txRow(tx) {
+  var meta = TX_META[tx.type] || { label: tx.type, icon: "info", sign: +1 };
+  var positive = tx.amount >= 0;
+  return '<div class="tx-row">' +
+    '<div class="tx-ico">' + svgIcon(meta.icon) + "</div>" +
+    '<div class="tx-main"><div class="tx-title">' + esc(meta.label) + (tx.note ? " \u2022 " + esc(tx.note) : "") + '</div>' +
+    '<div class="tx-date">' + fmtDateTime(tx.ts) + " \u2022 " + esc(tx.id) + "</div></div>" +
+    '<div class="tx-amt"><b class="' + (positive ? "pos" : "neg") + '">' + (positive ? "+" : "") + money(tx.amount) + "</b>" +
+    statusChip(tx.status) + "</div>" +
+  "</div>";
+}
+
+function emptyState(icon, title, sub) {
+  return '<div class="empty"><div class="e-ico">' + svgIcon(icon, "ic-lg") + "</div><b>" + esc(title) + "</b><span>" + esc(sub) + "</span></div>";
+}
+
+function txList(list, emptyTitle, emptySub) {
+  if (!list || !list.length) { return emptyState("sparkles", emptyTitle, emptySub); }
+  var out = "";
+  for (var i = 0; i < list.length; i++) { out += txRow(list[i]); }
+  return out;
+}
+
+/* ==========================================================================
+ * 21. VIEWS — one template function per screen
+ * ========================================================================== */
+var VIEWS = {};
+
+/* ---------- HOME ---------- */
+VIEWS.home = function () {
+  var w = WalletService.balances();
+  var today = WalletService.todayEarnings();
+  var target = APP_CONFIG.dailyTarget;
+  var pct = clamp(Math.round((today / target) * 100), 0, 100);
+  var ch = CharacterService.active();
+  var boost = CharacterService.boostPercent(ch.id);
+  var adsLeft = RewardService.adsLeft();
+  var adReward = RewardService.adReward();
+  var bonusReady = RewardService.canClaimBonus();
+  var nextBonusDay = RewardService.nextBonusDay();
+  var st = AppState.streak;
+  var recent = AppState.transactions.slice(0, 3);
+  var profile = UserService.profile();
+
+  var html = "";
+
+  /* top bar: avatar, name, id, notifications */
+  html += '<header class="topbar">' +
+    '<div class="userchip">' +
+      '<div class="avatar">' + tomatoArt(34) + "</div>" +
+      '<div><div class="u-name">' + esc(profile.name) + '</div><div class="u-id">ID ' + esc(profile.id) + "</div></div>" +
+    "</div>" +
+    '<button class="iconbtn" type="button" data-action="bell" aria-label="Notifications">' + svgIcon("bell") +
+      (UserService.hasUnread() ? '<span class="dot"></span>' : "") +
+    "</button>" +
+  "</header>";
+
+  /* main balance card */
+  html += '<button class="balance-card" type="button" data-action="open-wallet">' +
+    '<div class="balance-inner">' +
+      '<i class="p p1"></i><i class="p p2"></i><i class="p p3"></i>' +
+      '<div class="bc-head"><span class="bc-label">Total Balance</span><span class="demo-chip">DEMO</span></div>' +
+      '<div class="bc-amount" data-count="balance" data-val="' + w.total + '">' + money(UI._lastVals.balance !== undefined ? UI._lastVals.balance : w.total) + "</div>" +
+      '<div class="bc-stats">' +
+        '<div class="bc-stat"><span>Pending</span><b data-count="pending" data-val="' + w.pending + '">' + money(w.pending) + "</b></div>" +
+        '<div class="bc-sep"></div>' +
+        '<div class="bc-stat"><span>Withdrawable</span><b data-count="withdrawable" data-val="' + w.withdrawable + '">' + money(w.withdrawable) + "</b></div>" +
+      "</div>" +
+      '<div class="bc-foot">' + svgIcon("wallet", "ic-sm") + " Open wallet " + svgIcon("chev-r", "ic-sm") + "</div>" +
+    "</div>" +
+  "</button>";
+
+  /* today's progress */
+  html += '<section class="card">' +
+    '<div class="row-between"><span class="card-title">Today\u2019s Progress</span><span class="card-val">' + money(today) + " / " + money(target) + "</span></div>" +
+    progressBar(pct, "live") +
+    '<div class="row-between fineprint" style="margin:0"><span>Daily target</span><span>' + pct + "%</span></div>" +
+  "</section>";
+
+  /* active character strip */
+  html += '<section class="card char-mini">' +
+    '<div class="cm-art" style="background:radial-gradient(circle at 50% 35%,' + ch.art.aura + "30,transparent 72%)" + '">' + characterArt(ch, 56) + "</div>" +
+    '<div class="cm-info">' +
+      '<div class="cm-name">' + esc(ch.name) + ' <span class="lvl-badge">Lv ' + CharacterService.level(ch.id) + "</span></div>" +
+      '<div class="cm-boost">' + svgIcon("zap", "ic-sm") + " +" + boost + "% verified ad reward</div>" +
+    "</div>" +
+    '<button class="btn btn-sm btn-outline" type="button" data-action="nav" data-route="characters">Change</button>' +
+  "</section>";
+
+  /* main CTA — watch ad */
+  var ctaDisabled = adsLeft <= 0;
+  html += '<button class="watch-cta" type="button" data-action="watch-ad"' + (ctaDisabled ? " disabled" : "") + ">" +
+    '<span class="wa-ico">' + svgIcon("play") + "</span>" +
+    '<span class="wa-text"><b>WATCH AD</b><small>' +
+      (ctaDisabled ? "Daily limit reached \u2014 back tomorrow" : "+" + money(adReward) + " per verified ad \u2022 " + adsLeft + " left today") +
+    "</small></span>" +
+    svgIcon("chev-r") +
+  "</button>";
+
+  /* quick actions */
+  html += '<section class="quick-grid">' +
+    '<button class="q-card' + (bonusReady ? " glow" : "") + '" type="button" data-action="nav" data-route="earn">' +
+      '<span class="q-ico" style="background:rgba(255,157,46,.14);color:#ffb45c;border:1px solid rgba(255,157,46,.3)">' + svgIcon("gift") + "</span>" +
+      "<b>Daily Bonus</b>" +
+      (bonusReady ? '<small class="gold">Day ' + nextBonusDay + " \u2014 ready!</small>" : "<small>Claimed today \u2713</small>") +
+    "</button>" +
+    '<button class="q-card" type="button" data-action="nav" data-route="earn">' +
+      '<span class="q-ico" style="background:rgba(255,107,74,.14);color:#ff8a70;border:1px solid rgba(255,107,74,.3)">' + svgIcon("flame") + "</span>" +
+      "<b>Streak</b>" +
+      (st.current > 0 ? "<small>" + st.current + "-day streak \uD83D\uDD25</small>" : "<small>Start today</small>") +
+    "</button>" +
+    '<button class="q-card" type="button" data-action="nav" data-route="partners">' +
+      '<span class="q-ico" style="background:rgba(124,58,237,.16);color:#b99aff;border:1px solid rgba(160,107,255,.3)">' + svgIcon("users") + "</span>" +
+      "<b>Invite</b><small>Earn rewards</small>" +
+    "</button>" +
+  "</section>";
+
+  /* recent activity */
+  html += '<section class="card">' +
+    '<div class="row-between" style="margin-bottom:4px"><span class="card-title">Recent Activity</span>' +
+    '<button class="linkbtn" type="button" data-action="open-wallet">View all ' + svgIcon("chev-r", "ic-sm") + "</button></div>" +
+    txList(recent, "No activity yet", "Watch an ad or claim your bonus to start earning") +
+  "</section>";
+
+  return html;
+};
+
+/* ---------- CHARACTERS ---------- */
+VIEWS.characters = function () {
+  var active = CharacterService.active();
+  var list = CharacterService.list();
+  var html = "";
+
+  html += '<header class="pagehead"><h2>Characters</h2><p>Upgrade your mage to boost verified ad rewards</p></header>';
+
+  var boost = CharacterService.boostPercent(active.id);
+  html += '<section class="card char-mini">' +
+    '<div class="cm-art" style="background:radial-gradient(circle at 50% 35%,' + active.art.aura + "30,transparent 72%)" + '">' + characterArt(active, 56) + "</div>" +
+    '<div class="cm-info">' +
+      '<div class="cm-name">Active: ' + esc(active.name) + ' <span class="lvl-badge">Lv ' + CharacterService.level(active.id) + "</span></div>" +
+      '<div class="cm-boost">' + svgIcon("zap", "ic-sm") + " +" + boost + "% verified ad reward</div>" +
+    "</div>" +
+    '<span class="chip ok">' + svgIcon("check") + " Active</span>" +
+  "</section>";
+
+  html += '<div class="char-grid">';
+  for (var i = 0; i < list.length; i++) {
+    html += ViewsCharacter.cell(list[i]);
+  }
+  html += "</div>";
+
+  html += '<p class="fineprint center" style="margin-top:14px">Characters boost <b>verified ad rewards only</b> \u2014 they never generate money on their own. Purchases use your withdrawable balance.</p>';
+  return html;
+};
+
+var ViewsCharacter = {
+
+  cell: function (ch) {
+    var owned = CharacterService.isOwned(ch.id);
+    var isActive = CharacterService.isActive(ch.id);
+    var lvl = CharacterService.level(ch.id);
+    var maxed = owned && lvl >= ch.maxLevel;
+    var cost = CharacterService.upgradeCost(ch.id);
+    var boostNow = owned ? ch.boostBase + (lvl - 1) * ch.boostStep : ch.boostBase;
+    var boostNext = (owned && !maxed) ? ch.boostBase + lvl * ch.boostStep : boostNow;
+    var lockedByReq = !owned && ch.requires && !CharacterService.isOwned(ch.requires);
+    var affordable = AppState.wallet.withdrawable >= (owned ? (cost || 0) : ch.price);
+
+    /* level pips */
+    var pips = "";
+    for (var p = 1; p <= ch.maxLevel; p++) {
+      pips += "<i" + (owned && p <= lvl ? ' style="background:' + ch.art.aura + '"' : "") + "></i>";
+    }
+
+    var ribbon = "";
+    if (isActive) { ribbon = '<span class="cc-ribbon on">ACTIVE</span>'; }
+    else if (owned) { ribbon = '<span class="cc-ribbon">OWNED</span>'; }
+    else if (lockedByReq) { ribbon = '<span class="cc-ribbon">LOCKED</span>'; }
+
+    var actionHtml = "";
+    if (!owned) {
+      if (lockedByReq) {
+        var prev = CharacterService.get(ch.requires);
+        actionHtml = '<div class="cc-req">' + svgIcon("lock", "ic-sm") + " Requires " + esc(prev ? prev.name : ch.requires) + "</div>" +
+          '<div class="cc-actions"><button class="btn btn-outline" type="button" disabled>' + svgIcon("lock", "ic-sm") + " Locked</button></div>";
+      } else {
+        actionHtml = '<div class="cc-price" style="margin-top:7px">' + svgIcon("coin", "ic-sm") + (ch.price > 0 ? money(ch.price) : "Free") + "</div>" +
+          '<div class="cc-actions"><button class="btn ' + (affordable ? "btn-gold" : "btn-outline") + '" type="button" data-action="char-buy" data-id="' + ch.id + '">' +
+          (affordable ? "Unlock" : "Need " + money(ch.price)) + "</button></div>";
+      }
+    } else {
+      actionHtml = '<div class="cc-actions">' +
+        (isActive
+          ? '<button class="btn btn-green" type="button" disabled>' + svgIcon("check", "ic-sm") + " Active</button>"
+          : '<button class="btn btn-outline" type="button" data-action="char-activate" data-id="' + ch.id + '">Set active</button>') +
+        (maxed
+          ? '<button class="btn btn-purple" type="button" disabled>MAX</button>'
+          : '<button class="btn ' + (affordable ? "btn-purple" : "btn-outline") + '" type="button" data-action="char-upgrade" data-id="' + ch.id + '">' +
+              svgIcon("zap", "ic-sm") + (affordable ? money(cost) : "Need " + money(cost)) + "</button>") +
+        "</div>";
+    }
+
+    return '<article class="char-cell' + (isActive ? " active" : "") + (!owned ? " locked" : "") + '">' +
+      '<div class="cc-art" style="background:radial-gradient(circle at 50% 32%,' + ch.art.aura + "2E,transparent 72%),linear-gradient(180deg,rgba(255,255,255,.05),transparent 60%)" + '">' +
+        ribbon + characterArt(ch, 88) +
+      "</div>" +
+      '<div><div class="cc-name">' + esc(ch.name) + (owned ? ' <span class="lvl-badge">Lv ' + lvl + "</span>" : "") + "</div>" +
+      '<div class="cc-meta">' + rarityTag(ch.rarity) + (owned ? '<span class="chip dim">' + lvl + "/" + ch.maxLevel + "</span>" : "") + "</div>" +
+      '<div class="cc-boost">' + svgIcon("zap", "ic-sm") + " +" + boostNow + "% ad reward" + (!maxed ? ' <span class="dim">\u2192 +' + boostNext + "%</span>" : "") + "</div>" +
+      '<div class="cc-pips">' + pips + "</div>" +
+      actionHtml +
+      "</div>" +
+    "</article>";
+  }
+};
+
+/* ---------- EARN ---------- */
+VIEWS.earn = function () {
+  var html = "";
+  html += '<header class="pagehead"><h2>Earn</h2><p>All rewards are credited as pending and verified before withdrawal</p></header>';
+
+  /* 1 — rewarded ad */
+  var adsLeft = RewardService.adsLeft();
+  var adsToday = RewardService.adsToday();
+  var adReward = RewardService.adReward();
+  var boost = CharacterService.boostPercent();
+  var adPct = (APP_CONFIG.dailyAdLimit > 0) ? (adsToday / APP_CONFIG.dailyAdLimit) * 100 : 0;
+  html += '<section class="card">' +
+    '<div class="earn-hero-top">' +
+      '<div class="eh-ico">' + svgIcon("tv", "ic-lg") + "</div>" +
+      '<div style="flex:1"><div class="card-title" style="font-size:15px">Watch Advertisement</div><div class="small muted">Rewarded video \u2022 verified</div></div>' +
+      (adsLeft > 0 ? '<span class="chip ok">' + svgIcon("check") + " Available</span>" : '<span class="chip dim">' + svgIcon("clock") + " Done today</span>") +
+    "</div>" +
+    '<div class="kv"><span>Reward</span><b class="gold">+' + money(adReward) + (boost > 0 ? ' <span class="dim small">(incl. +' + boost + "% boost)</span>" : "") + "</b></div>" +
+    '<div class="kv"><span>Today</span><b>' + adsToday + " / " + APP_CONFIG.dailyAdLimit + "</b></div>" +
+    progressBar(adPct) +
+    '<button class="btn btn-primary btn-block mt8" type="button" data-action="watch-ad"' + (adsLeft <= 0 ? " disabled" : "") + ">" +
+      svgIcon("play", "ic-sm") + (adsLeft > 0 ? "WATCH AD" : "Daily limit reached") + "</button>" +
+    '<p class="fineprint">The reward is credited <b>after the ad is completed and verified</b>. This demo uses a clearly-labeled simulated ad \u2014 real ads arrive with the ad-network integration.</p>' +
+  "</section>";
+
+  /* 2 — daily bonus */
+  var nextDay = RewardService.nextBonusDay();
+  var canClaim = RewardService.canClaimBonus();
+  var midnight = Clock.now() + msUntilMidnight(Clock.now());
+  html += '<section class="card">' +
+    '<div class="earn-hero-top">' +
+      '<div class="eh-ico" style="background:rgba(255,201,60,.13);border-color:rgba(255,201,60,.35);color:#ffd45c">' + svgIcon("gift", "ic-lg") + "</div>" +
+      '<div style="flex:1"><div class="card-title" style="font-size:15px">Daily Bonus</div><div class="small muted">One claim per day \u2022 7-day track</div></div>' +
+      (canClaim ? '<span class="chip warn">Day ' + nextDay + "</span>" : '<span class="chip ok">' + svgIcon("check") + " Claimed</span>") +
+    "</div>" +
+    '<div class="day-chips">';
+  for (var d = 1; d <= 7; d++) {
+    var cls = d < nextDay ? " done" : (d === nextDay ? " cur" : "");
+    var mark = d < nextDay ? " \u2713" : "";
+    html += '<div class="day-chip' + cls + '"><span>DAY ' + d + "</span><b>" + money(RewardService.bonusRewardFor(d)).replace(".00", "") + mark + "</b></div>";
+  }
+  html += "</div>";
+  html += canClaim
+    ? '<button class="btn btn-gold btn-block mt8" type="button" data-action="claim-bonus">' + svgIcon("gift", "ic-sm") + " Claim Day " + nextDay + " \u2022 +" + money(RewardService.bonusRewardFor(nextDay)) + "</button>"
+    : '<div class="btn btn-outline btn-block mt8" style="pointer-events:none">' + svgIcon("clock", "ic-sm") + ' Next bonus in <span data-countdown="' + midnight + '">--</span></div>';
+  html += '<p class="fineprint">Miss a day and the track restarts at Day 1.</p></section>';
+
+  /* 3 — streak */
+  var st = AppState.streak;
+  var qualified = RewardService.streakQualifiedToday();
+  var weekKeys = Clock.weekKeys();
+  var dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+  html += '<section class="card">' +
+    '<div class="earn-hero-top">' +
+      '<div class="eh-ico" style="background:rgba(255,107,74,.13);border-color:rgba(255,107,74,.35);color:#ff8a70">' + svgIcon("flame", "ic-lg") + "</div>" +
+      '<div style="flex:1"><div class="card-title" style="font-size:15px">Daily Streak</div><div class="small muted">Qualify every day for milestone bonuses</div></div>' +
+    "</div>" +
+    '<div class="streak-hero">' +
+      '<div class="streak-flame">' + svgIcon("flame", "ic-lg") + "</div>" +
+      '<div><div class="streak-num">' + st.current + ' <span class="small dim">day' + (st.current === 1 ? "" : "s") + '</span></div><div class="streak-sub">Best: ' + st.best + " days</div></div>" +
+      '<div style="flex:1"></div>' +
+      (qualified ? '<span class="chip ok">' + svgIcon("check") + " Today done</span>" : '<span class="chip warn">Today: not yet</span>') +
+    "</div>" +
+    '<div class="wk">';
+  for (var wk = 0; wk < weekKeys.length; wk++) {
+    var key = weekKeys[wk];
+    var dow = new Date(key.replace(/-/g, "/")).getDay();
+    var isToday = key === Clock.todayKey();
+    var on = !!st.days[key];
+    html += '<div class="wk-day"><span>' + dayLabels[dow] + "</span>" +
+      '<div class="wk-dot' + (on ? " on" : "") + (isToday ? " today" : "") + '">' + (on ? svgIcon("flame") : "") + "</div></div>";
+  }
+  html += "</div>";
+  var msTxt = "";
+  for (var m = 0; m < APP_CONFIG.streak.milestones.length; m++) {
+    var mm = APP_CONFIG.streak.milestones[m];
+    msTxt += (m ? " \u2022 " : "") + mm.day + "-day: +" + money(mm.reward);
+  }
+  html += '<p class="fineprint">A streak day counts only after a qualifying action (verified ad or bonus claim) \u2014 refreshing the page never extends it. Milestones: ' + msTxt + ".</p></section>";
+
+  /* 4 — daily challenge */
+  var c = RewardService.challenge();
+  var cPct = (c.count / c.required) * 100;
+  html += '<section class="card">' +
+    '<div class="earn-hero-top">' +
+      '<div class="eh-ico" style="background:rgba(124,58,237,.15);border-color:rgba(160,107,255,.35);color:#b99aff">' + svgIcon("target", "ic-lg") + "</div>" +
+      '<div style="flex:1"><div class="card-title" style="font-size:15px">Daily Challenge</div><div class="small muted">Watch ' + c.required + " verified ads today</div></div>" +
+      (c.claimed ? '<span class="chip ok">' + svgIcon("check") + " Claimed</span>" : (c.done ? '<span class="chip warn">Ready!</span>' : '<span class="chip dim">' + c.count + "/" + c.required + "</span>")) +
+    "</div>" +
+    progressBar(cPct, "purple") +
+    '<div class="kv"><span>Progress</span><b>' + c.count + " / " + c.required + "</b></div>" +
+    '<div class="kv"><span>Reward</span><b class="gold">+' + money(APP_CONFIG.challenge.reward) + "</b></div>" +
+    (c.claimed
+      ? '<div class="btn btn-outline btn-block mt8" style="pointer-events:none">' + svgIcon("check", "ic-sm") + " Come back tomorrow</div>"
+      : '<button class="btn btn-purple btn-block mt8" type="button" data-action="claim-challenge"' + (!c.done ? " disabled" : "") + ">" + svgIcon("gift", "ic-sm") + (c.done ? " Claim +" + money(APP_CONFIG.challenge.reward) : " Watch " + (c.required - c.count) + " more ad(s)") + "</button>") +
+    '<p class="fineprint">Resets every day at midnight.</p></section>';
+
+  /* honesty note */
+  html += '<section class="card" style="border-style:dashed">' +
+    svgIcon("info") +
+    '<p class="fineprint" style="margin:4px 0 0">Earning opportunities depend on the availability of <b>verified rewarded ads</b>. Amounts shown are configured reward values, not guaranteed income. Pending rewards are verified before they become withdrawable.</p>' +
+  "</section>";
+
+  return html;
+};
+
+/* ---------- PARTNERS (referral) ---------- */
+VIEWS.partners = function () {
+  var html = "";
+  var stats = ReferralService.stats();
+  var lim = ReferralService.limitInfo();
+  var earnings = ReferralService.earnings();
+  var tiers = ReferralService.tiers();
+  var stages = ReferralService.stages();
+  var link = ReferralService.link();
+
+  html += '<header class="pagehead"><h2>Partners</h2><p>Invite friends and grow your withdrawal limit together</p></header>';
+
+  /* referral link + copy */
+  html += '<section class="card">' +
+    '<div class="row-between"><span class="card-title">Your invite link</span><span class="demo-chip">DEMO</span></div>' +
+    '<div class="ref-linkbox">' +
+      '<div class="ref-link">' + esc(link) + "</div>" +
+      '<button class="btn btn-primary btn-sm" type="button" data-action="copy-ref">' + svgIcon("copy", "ic-sm") + " Copy</button>" +
+    "</div>" +
+    '<p class="fineprint">Friends who join through your link count as <b>invited</b>. They become <b>active</b> only after completing a qualifying activity (e.g. a verified rewarded ad).</p>' +
+  "</section>";
+
+  /* stats */
+  html += '<section class="card">' +
+    '<div class="stat-grid">' +
+      '<div class="stat"><b>' + stats.invited + "</b><span>INVITED</span></div>" +
+      '<div class="stat"><b class="green">' + stats.active + "</b><span>ACTIVE</span></div>" +
+      '<div class="stat"><b class="gold">' + money(earnings) + "</b><span>REFERRAL EARNINGS</span></div>" +
+    "</div>" +
+    '<p class="fineprint" style="margin:10px 0 0">Active today: <b>' + stats.activeToday + "</b> \u2022 Referral counts are simulated for this demo build.</p>" +
+  "</section>";
+
+  /* tier progress */
+  var nextGoal = lim.next ? lim.next.active : null;
+  var prevGoal = 0;
+  for (var t = 0; t < APP_CONFIG.referral.tiers.length; t++) {
+    if (stats.active >= APP_CONFIG.referral.tiers[t].active) { prevGoal = APP_CONFIG.referral.tiers[t].active; }
+  }
+  var tierPct = nextGoal ? ((stats.active - prevGoal) / (nextGoal - prevGoal)) * 100 : 100;
+  html += '<section class="card">' +
+    '<div class="row-between"><span class="card-title">Invite friends</span>' +
+      (nextGoal ? '<span class="card-val">' + stats.active + " / " + nextGoal + " active</span>" : '<span class="chip ok">' + svgIcon("check") + " Max tier</span>") +
+    "</div>" +
+    progressBar(tierPct, "gold") +
+    (nextGoal
+      ? '<p class="fineprint" style="margin:0">' + (nextGoal - stats.active) + " more active friend" + (nextGoal - stats.active === 1 ? "" : "s") + " \u2192 withdrawal limit " + money(lim.next.limit) + "</p>"
+      : '<p class="fineprint" style="margin:0">You reached the maximum withdrawal limit. Amazing work!</p>') +
+    '<div class="kv mt12"><span>Current withdrawal limit</span><b class="gold">' + money(lim.current) + "</b></div>" +
+  "</section>";
+
+  /* tiers list */
+  html += '<section class="card"><div class="card-title" style="margin-bottom:4px">Referral tiers</div>';
+  for (var i = 0; i < tiers.length; i++) {
+    var tr = tiers[i];
+    html += '<div class="tier-row' + (tr.unlocked ? " unlocked" : "") + (tr.current ? " current" : "") + '">' +
+      '<div class="tier-ico">' + (tr.unlocked ? svgIcon("check") : svgIcon("lock")) + "</div>" +
+      '<div class="tier-txt"><b>' + tr.tier.active + " active referral" + (tr.tier.active === 1 ? "" : "s") + "</b>" +
+      "<span>" + (tr.current ? "Current tier" : (tr.unlocked ? "Unlocked" : "Locked")) + "</span></div>" +
+      '<div class="tier-val">' + money(tr.tier.limit) + " limit</div>" +
+    "</div>";
+  }
+  html += "</section>";
+
+  /* staged unlock bonus */
+  html += '<section class="card">' +
+    '<div class="earn-hero-top" style="margin-bottom:2px">' +
+      '<div class="eh-ico" style="background:rgba(255,201,60,.13);border-color:rgba(255,201,60,.35);color:#ffd45c">' + svgIcon("gift", "ic-lg") + "</div>" +
+      '<div style="flex:1"><div class="card-title" style="font-size:15px">Unlock Bonus</div><div class="small muted">Staged rewards for growing your crew</div></div>' +
+    "</div>";
+  for (var s = 0; s < stages.length; s++) {
+    var sg = stages[s];
+    var sPct = clamp((stats.active / sg.stage.active) * 100, 0, 100);
+    html += '<div class="stage-row">' +
+      '<div class="row-between"><span class="small" style="font-weight:800">' + sg.stage.active + " active friends</span>" +
+      '<span class="gold small" style="font-weight:800">+' + money(sg.stage.reward) + "</span></div>" +
+      progressBar(sPct, "gold slim") +
+      '<div class="row-between mt8">' +
+        '<span class="fineprint" style="margin:0">' + Math.min(stats.active, sg.stage.active) + " / " + sg.stage.active + " active</span>" +
+        (sg.claimed
+          ? '<span class="chip ok">' + svgIcon("check") + " Claimed</span>"
+          : (sg.canClaim
+              ? '<button class="btn btn-gold btn-sm" type="button" data-action="claim-ref-stage" data-stage="' + sg.index + '">' + svgIcon("gift", "ic-sm") + " Claim</button>"
+              : '<span class="chip dim">' + svgIcon("lock") + " Locked</span>")) +
+      "</div>" +
+    "</div>";
+  }
+  html += '<p class="fineprint">Stage bonuses are credited as <b>pending</b> and verified before they become withdrawable \u2014 not instantly spendable.</p></section>';
+
+  /* how it works */
+  html += '<section class="card"><div class="card-title" style="margin-bottom:6px">How it works</div>' +
+    '<div class="step"><div class="step-n">1</div><p><b>Share your link.</b> Send it to friends through any messenger.</p></div>' +
+    '<div class="step"><div class="step-n">2</div><p><b>They join &amp; start earning.</b> Opening the link only invites them \u2014 it does not make them active.</p></div>' +
+    '<div class="step"><div class="step-n">3</div><p><b>They complete a qualifying activity</b> (for example a verified rewarded ad). Only then do they count as active.</p></div>' +
+    '<div class="step"><div class="step-n">4</div><p><b>You unlock rewards</b> \u2014 higher withdrawal limits and staged bonuses.</p></div>' +
+  "</section>";
+
+  return html;
+};
+
+/* ---------- PROFILE ---------- */
+VIEWS.profile = function () {
+  var profile = UserService.profile();
+  var ch = CharacterService.active();
+  var stats = ReferralService.stats();
+  var verified = WalletService.totalVerified();
+  var html = "";
+
+  html += '<header class="pagehead"><h2>Profile</h2><p>Your account &amp; settings</p></header>';
+
+  html += '<section class="card profile-hero">' +
+    '<div class="avatar">' + tomatoArt(58) + "</div>" +
+    '<div class="ph-name">' + esc(profile.name) + '<span class="demo-chip">DEMO</span></div>' +
+    '<div class="ph-id">ID ' + esc(profile.id) + "</div>" +
+    '<div class="ph-joined">' + svgIcon("calendar", "ic-sm") + " Joined " + fmtDate(profile.joinedAt) + "</div>" +
+    '<div class="stat-grid" style="margin-top:16px;width:100%">' +
+      '<div class="stat"><b>+' + CharacterService.boostPercent() + '%</b><span>' + esc(ch.name).toUpperCase() + " BOOST</span></div>" +
+      '<div class="stat"><b>' + stats.active + "</b><span>REFERRALS</span></div>" +
+      '<div class="stat"><b class="gold">' + money(verified) + "</b><span>VERIFIED EARNED</span></div>" +
+    "</div>" +
+  "</section>";
+
+  /* wallet shortcut */
+  html += '<section class="card char-mini" data-action="open-wallet" style="cursor:pointer">' +
+    '<div class="cm-art" style="background:rgba(255,201,60,.12);border-color:rgba(255,201,60,.3);color:#ffd45c">' + svgIcon("wallet", "ic-lg") + "</div>" +
+    '<div class="cm-info"><div class="cm-name">Wallet</div><div class="cm-boost" style="color:#a89fc9">Balances, withdraw &amp; history</div></div>' +
+    svgIcon("chev-r", "muted") +
+  "</section>";
+
+  /* settings menu */
+  html += '<section class="card menu">' +
+    '<button class="menu-row" type="button" data-action="language"><span class="menu-ico">' + svgIcon("globe") + '</span><span class="grow">Language</span><span class="mval">English</span><span class="chev">' + svgIcon("chev-r", "ic-sm") + "</span></button>" +
+    '<button class="menu-row" type="button" data-action="notif-toggle"><span class="menu-ico">' + svgIcon("bell") + '</span><span class="grow">Notifications</span><span class="switch' + (AppState.settings.notifications ? " on" : "") + '"><i></i></span></button>' +
+    '<button class="menu-row" type="button" data-action="help"><span class="menu-ico">' + svgIcon("help") + '</span><span class="grow">Help &amp; FAQ</span><span class="chev">' + svgIcon("chev-r", "ic-sm") + "</span></button>" +
+    '<button class="menu-row" type="button" data-action="terms"><span class="menu-ico">' + svgIcon("file") + '</span><span class="grow">Terms of Service</span><span class="chev">' + svgIcon("chev-r", "ic-sm") + "</span></button>" +
+    '<button class="menu-row" type="button" data-action="privacy"><span class="menu-ico">' + svgIcon("shield") + '</span><span class="grow">Privacy Policy</span><span class="chev">' + svgIcon("chev-r", "ic-sm") + "</span></button>" +
+  "</section>";
+
+  html += '<p class="footnote" data-action="version-tap">' + esc(APP_CONFIG.appName) + " v" + APP_CONFIG.version + "<br>Demo build \u2014 balances are simulated locally and hold no monetary value.</p>";
+
+  return html;
+};
+
+/* ---------- WALLET ---------- */
+VIEWS.wallet = function () {
+  var w = WalletService.balances();
+  var txs = AppState.transactions;
+  var wds = AppState.withdrawals;
+  var lim = ReferralService.limitInfo();
+  var html = "";
+
+  html += '<header class="backhead">' +
+    '<button class="iconbtn" type="button" data-action="back" aria-label="Back">' + svgIcon("back") + "</button>" +
+    "<h2>Wallet</h2>" +
+    '<span class="demo-chip">DEMO</span>' +
+  "</header>";
+
+  html += '<section class="card wallet-summary">' +
+    '<div class="ws-label">Total Balance</div>' +
+    '<div class="ws-total" data-count="balance" data-val="' + w.total + '">' + money(UI._lastVals.balance !== undefined ? UI._lastVals.balance : w.total) + "</div>" +
+    '<div class="stat-grid" style="margin-top:14px">' +
+      '<div class="stat"><b style="color:#ffc93c">' + money(w.pending) + "</b><span>PENDING</span></div>" +
+      '<div class="stat"><b style="color:#3ddc84">' + money(w.withdrawable) + "</b><span>WITHDRAWABLE</span></div>" +
+      '<div class="stat"><b>' + money(WalletService.totalVerified()) + "</b><span>LIFETIME VERIFIED</span></div>" +
+    "</div>" +
+    '<div class="modal-actions" style="margin-bottom:0">' +
+      '<button class="btn btn-outline" type="button" data-action="deposit">' + svgIcon("coin", "ic-sm") + " Deposit</button>" +
+      '<button class="btn btn-green" type="button" data-action="open-withdraw">' + svgIcon("send", "ic-sm") + " Withdraw</button>" +
+    "</div>" +
+  "</section>";
+
+  html += '<section class="card">' +
+    '<div class="kv"><span>Minimum withdrawal</span><b>' + money(APP_CONFIG.minimumWithdrawal) + "</b></div>" +
+    '<div class="kv"><span>Your withdrawal limit</span><b class="gold">' + money(lim.current) + "</b></div>" +
+    '<div class="kv"><span>Estimated processing</span><b>' + APP_CONFIG.processingEstimate + "</b></div>" +
+    '<div class="kv"><span>Requests under review</span><b>' + WithdrawalService.pendingCount() + " / " + APP_CONFIG.maxPendingWithdrawals + "</b></div>" +
+    '<p class="fineprint">Pending rewards become withdrawable after verification. Withdrawal limits grow with active referrals (see Partners).</p>' +
+  "</section>";
+
+  /* withdrawal requests */
+  if (wds.length) {
+    html += '<section class="card"><div class="card-title" style="margin-bottom:4px">Withdrawal requests</div>';
+    for (var i = 0; i < wds.length; i++) {
+      var wd = wds[i];
+      html += '<div class="tx-row">' +
+        '<div class="tx-ico">' + svgIcon("send") + "</div>" +
+        '<div class="tx-main"><div class="tx-title">' + esc(wd.method) + " \u2022 " + esc(wd.account.slice(0, 3) + "\u2022\u2022\u2022\u2022\u2022" + wd.account.slice(-3)) + '</div>' +
+        '<div class="tx-date">' + fmtDateTime(wd.ts) + " \u2022 " + esc(wd.id) + "</div></div>" +
+        '<div class="tx-amt"><b class="neg">-' + money(wd.amount).replace("-", "") + "</b>" + statusChip(wd.status) + "</div>" +
+      "</div>";
+    }
+    html += "</section>";
+  }
+
+  /* transaction history */
+  html += '<section class="card">' +
+    '<div class="card-title" style="margin-bottom:4px">Transaction history</div>' +
+    txList(txs, "No transactions yet", "Your earnings and withdrawals will appear here") +
+  "</section>";
+
+  return html;
+};
+
+/* ---------- WITHDRAW (form) ---------- */
+VIEWS.withdraw = function () {
+  var w = WalletService.balances();
+  var lim = ReferralService.limitInfo();
+  var d = WithdrawalService.draft;
+  var html = "";
+
+  html += '<header class="backhead">' +
+    '<button class="iconbtn" type="button" data-action="back" aria-label="Back">' + svgIcon("back") + "</button>" +
+    "<h2>Withdraw</h2>" +
+  "</header>";
+
+  html += '<section class="card">' +
+    '<div class="kv"><span>Available (withdrawable)</span><b class="green">' + money(w.withdrawable) + "</b></div>" +
+    '<div class="kv"><span>Minimum withdrawal</span><b>' + money(APP_CONFIG.minimumWithdrawal) + "</b></div>" +
+    '<div class="kv"><span>Your limit per request</span><b class="gold">' + money(lim.current) + "</b></div>" +
+    '<div class="kv"><span>Estimated processing</span><b>' + APP_CONFIG.processingEstimate + "</b></div>" +
+  "</section>";
+
+  html += '<section class="card">' +
+    '<div class="field"><label>Method</label><div class="seg" id="wd-methods">';
+  for (var i = 0; i < APP_CONFIG.withdrawalMethods.length; i++) {
+    var mth = APP_CONFIG.withdrawalMethods[i];
+    html += '<button type="button" data-action="wd-method" data-method="' + esc(mth) + '"' +
+      (d.method === mth ? ' class="sel"' : "") + ">" + esc(mth) + "</button>";
+  }
+  html += '</div><div class="ferr" id="wd-err-method"></div></div>' +
+    '<div class="field"><label>Account / mobile number</label>' +
+      '<input class="input" id="wd-account" type="tel" inputmode="numeric" autocomplete="off" placeholder="01XXXXXXXXX" value="' + esc(d.account) + '">' +
+      '<div class="ferr" id="wd-err-account"></div></div>' +
+    '<div class="field"><label>Amount (' + APP_CONFIG.currency.code + ")</label>" +
+      '<input class="input" id="wd-amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="' + esc(d.amount) + '">' +
+      '<div class="ferr" id="wd-err-amount"></div></div>' +
+    '<div class="ferr" id="wd-err-global" style="margin-bottom:8px"></div>' +
+    '<button class="btn btn-green btn-block" type="button" data-action="withdraw-submit">' + svgIcon("send", "ic-sm") + " Submit withdrawal request</button>" +
+    '<p class="fineprint">Requests are reviewed by our team and processed within ' + APP_CONFIG.processingEstimate + ". This demo build cannot send real payments \u2014 requests stay <b>Pending</b> until the future backend processes them.</p>" +
+  "</section>";
+
+  return html;
+};
+
+/* ==========================================================================
+ * 22. Actions — every data-action in the app maps to one handler
+ * ========================================================================== */
+var Actions = {
+
+  /* navigation */
+  "nav": function (el) { UI.navigate(el.getAttribute("data-route")); },
+  /* in-app back: go to the previously viewed route (natural back),
+     falling back to the browser history / home for deep links */
+  "back": function () {
+    if (UI._prevRoute && VIEWS[UI._prevRoute]) { UI.navigate(UI._prevRoute); }
+    else if (window.history && window.history.length > 1) { window.history.back(); }
+    else { UI.navigate("home"); }
+  },
+  "open-wallet": function () { UI.navigate("wallet"); },
+  "open-withdraw": function () {
+    if (WithdrawalService.pendingCount() >= APP_CONFIG.maxPendingWithdrawals) {
+      UI.toast("You already have a withdrawal under review.", "info");
+      return;
+    }
+    if (AppState.wallet.withdrawable < APP_CONFIG.minimumWithdrawal) {
+      UI.toast("Withdrawable balance is below the " + money(APP_CONFIG.minimumWithdrawal) + " minimum.", "info");
+      return;
+    }
+    UI.navigate("withdraw");
+  },
+
+  /* earning */
+  "watch-ad": function () { RewardService.watchAd(); },
+  "claim-bonus": function () { RewardService.claimBonus(); },
+  "claim-challenge": function () { RewardService.claimChallenge(); },
+  "ad-cancel": function () { DemoAdUI._finish({ verified: false, reason: "closed" }); },
+  "ad-collect": function () {
+    /* only enabled by the countdown after the simulated ad completes */
+    DemoAdUI._finish({ verified: true, token: uid("demo-ad") });
+  },
+
+  /* characters */
+  "char-buy": function (el) { CharacterService.buy(el.getAttribute("data-id")); },
+  "char-upgrade": function (el) { CharacterService.upgrade(el.getAttribute("data-id")); },
+  "char-activate": function (el) { CharacterService.setActive(el.getAttribute("data-id")); },
+
+  /* partners */
+  "copy-ref": function () {
+    var link = ReferralService.link();
+    copyText(link).then(function (ok) {
+      if (ok) { UI.toast("Invite link copied to clipboard!", "success"); }
+      else {
+        UI.openModal({
+          title: "Your invite link",
+          bodyHtml: '<div class="ref-link" style="white-space:normal;word-break:break-all">' + esc(link) + "</div>" +
+            '<p class="fineprint">Long-press (or select) the link above to copy it manually.</p>'
+        });
+      }
+    });
+  },
+  "claim-ref-stage": function (el) { ReferralService.claimStage(parseInt(el.getAttribute("data-stage"), 10)); },
+
+  /* wallet / withdrawal */
+  "deposit": function () {
+    UI.openModal({
+      title: "Deposit",
+      bodyHtml:
+        '<div class="center" style="padding:4px 0 8px">' +
+          '<div style="display:inline-block;padding:12px;border-radius:20px;background:rgba(255,201,60,.1);border:1px dashed rgba(255,201,60,.4);color:#ffd45c">' + svgIcon("coin", "ic-lg") + "</div>" +
+        "</div>" +
+        '<p class="small" style="color:#cfc7e8">Deposits are not part of this demo build. When the app connects to the payment backend, this screen will offer real top-up options.</p>' +
+        '<p class="fineprint">No payment is requested or processed here \u2014 and no demo funds are added.</p>'
+    });
+  },
+  "wd-method": function (el) {
+    WithdrawalService.draft.method = el.getAttribute("data-method");
+    var btns = document.getElementById("wd-methods") ? document.getElementById("wd-methods").children : [];
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].className = (btns[i].getAttribute("data-method") === WithdrawalService.draft.method) ? "sel" : "";
+    }
+  },
+  "withdraw-submit": function () {
+    var acctEl = document.getElementById("wd-account");
+    var amtEl = document.getElementById("wd-amount");
+    var form = {
+      method: WithdrawalService.draft.method,
+      account: acctEl ? String(acctEl.value || "").trim() : "",
+      amount: amtEl ? String(amtEl.value || "").trim() : ""
+    };
+    WithdrawalService.draft.account = form.account;
+    WithdrawalService.draft.amount = form.amount;
+
+    /* clear previous errors */
+    var ids = ["method", "account", "amount", "global"];
+    for (var i = 0; i < ids.length; i++) {
+      var e = document.getElementById("wd-err-" + ids[i]);
+      if (e) { e.className = "ferr"; e.textContent = ""; }
+    }
+
+    WithdrawalService.request(form).then(function (res) {
+      if (res.ok) {
+        WithdrawalService.draft.account = "";
+        WithdrawalService.draft.amount = "";
+        UI.navigate("wallet");
+        UI.toast("Withdrawal request submitted \u2014 status: Pending review.", "success");
+        return;
+      }
+      if (res.errors) {
+        for (var k in res.errors) {
+          if (!res.errors.hasOwnProperty(k)) { continue; }
+          var el = document.getElementById("wd-err-" + k);
+          if (el) { el.className = "ferr show"; el.textContent = res.errors[k]; }
+          else if (k === "global") { UI.toast(res.errors[k], "error"); }
+        }
+      }
+    });
+  },
+
+  /* notifications & settings */
+  "bell": function () {
+    AppState.settings.lastNotifSeen = Clock.now();
+    DemoState.save();
+    var items = UserService.notifications();
+    var html = "";
+    for (var i = 0; i < items.length; i++) {
+      html += '<button class="notif-row" type="button"' +
+        (items[i].route ? ' data-action="notif-go" data-route="' + items[i].route + '"' : "") + ">" +
+        '<span class="notif-ico">' + svgIcon(items[i].icon) + "</span><p>" + items[i].text + "</p></button>";
+    }
+    UI.openModal({ title: "Notifications", bodyHtml: html });
+    UI.refresh(); /* clear the bell dot */
+  },
+  "notif-go": function (el) {
+    UI.closeModal();
+    UI.navigate(el.getAttribute("data-route"));
+  },
+  "language": function () {
+    UI.openModal({
+      title: "Language",
+      bodyHtml:
+        '<button class="menu-row" type="button" data-action="lang-set" data-lang="en"><span class="menu-ico">' + svgIcon("check") + '</span><span class="grow">English</span><span class="chip ok">Active</span></button>' +
+        '<button class="menu-row" type="button" data-action="lang-set" data-lang="bn"><span class="menu-ico">' + svgIcon("globe") + '</span><span class="grow">\u09AC\u09BE\u0982\u09B2\u09BE (Bangla)</span><span class="chip dim">Soon</span></button>' +
+        '<p class="fineprint">More languages arrive with the backend integration.</p>'
+    });
+  },
+  "lang-set": function (el) {
+    var lang = el.getAttribute("data-lang");
+    if (lang === "en") { UI.toast("English is already active.", "info"); }
+    else { UI.toast("\u09AC\u09BE\u0982\u09B2\u09BE is coming soon!", "info"); }
+  },
+  "notif-toggle": function () {
+    AppState.settings.notifications = !AppState.settings.notifications;
+    DemoState.save();
+    UI.refresh();
+    UI.toast("Notifications " + (AppState.settings.notifications ? "enabled" : "disabled") + " (local setting).", "info");
+  },
+  "help": function () {
+    UI.openModal({
+      title: "Help & FAQ",
+      bodyHtml:
+        '<div class="step"><div class="step-n">?</div><p><b>How do I earn?</b><br>Complete rewarded ads and daily activities. Rewards are credited as <b>pending</b> first, then verified by the system before they become withdrawable.</p></div>' +
+        '<div class="step"><div class="step-n">?</div><p><b>Why is my reward "pending"?</b><br>Every reward goes through verification to prevent fraud. In this demo the check runs automatically after a short delay.</p></div>' +
+        '<div class="step"><div class="step-n">?</div><p><b>What does my character do?</b><br>Active characters add a boost (<b>+% verified ad reward</b>). They never generate money on their own.</p></div>' +
+        '<div class="step"><div class="step-n">?</div><p><b>When can I withdraw?</b><br>Once your withdrawable balance reaches the minimum (' + money(APP_CONFIG.minimumWithdrawal) + ') and no other request is under review. Requests are processed within ' + APP_CONFIG.processingEstimate + ".</p></div>" +
+        '<div class="step"><div class="step-n">?</div><p><b>Is this real money?</b><br>No \u2014 this is a <b>demo build</b>. Balances are simulated on your device for UI testing and hold no monetary value.</p></div>'
+    });
+  },
+  "terms": function () {
+    UI.openModal({
+      title: "Terms of Service",
+      bodyHtml:
+        '<p class="small" style="color:#cfc7e8;line-height:1.65">' +
+        "1. <b>Demo software.</b> This build of " + esc(APP_CONFIG.appName) + " is a user-interface demo. Balances, rewards and withdrawals shown are simulated locally and hold no monetary value.<br><br>" +
+        "2. <b>No guaranteed earnings.</b> Rewards depend on the availability of verified rewarded advertisements. Nothing here is a promise of income.<br><br>" +
+        "3. <b>Fair use.</b> Fraud, automation, multiple accounts or manipulation of local data may lead to rejection of rewards and withdrawals once real services are connected.<br><br>" +
+        "4. <b>Withdrawals.</b> In production, every request is reviewed before payment and may be rejected for suspicious activity.<br><br>" +
+        "5. <b>Eligibility.</b> You must be at least 18 years old (or the legal age in your region) to use earning features in the production app.<br><br>" +
+        "6. <b>Changes.</b> These terms will be updated when the real service launches." +
+        "</p>"
+    });
+  },
+  "privacy": function () {
+    UI.openModal({
+      title: "Privacy Policy",
+      bodyHtml:
+        '<p class="small" style="color:#cfc7e8;line-height:1.65">' +
+        "1. <b>Local data only.</b> This demo stores all state (balance, streaks, settings) in your browser\u2019s local storage. Nothing is sent to any server.<br><br>" +
+        "2. <b>No accounts, no tracking.</b> The demo collects no personal data, uses no analytics and loads no external resources.<br><br>" +
+        "3. <b>Future service.</b> When the app connects to the Telegram Mini App and its backend, a full privacy policy will describe exactly what data is processed (e.g. your Telegram user ID and reward history).<br><br>" +
+        "4. <b>Your control.</b> You can erase all demo data anytime from Profile \u2192 version label \u2192 demo tools \u2192 reset, or by clearing site data." +
+        "</p>"
+    });
+  },
+
+  /* hidden demo admin (5 taps on the version label) */
+  "version-tap": (function () {
+    var taps = 0, timer = null;
+    return function () {
+      taps++;
+      if (timer) { clearTimeout(timer); }
+      timer = setTimeout(function () { taps = 0; }, 2600);
+      if (taps >= 5) {
+        taps = 0;
+        DemoAdmin.open();
+      } else if (taps === 3) {
+        UI.toast("Tap 2 more times to open demo tools\u2026", "info");
+      }
+    };
+  })(),
+
+  /* demo admin actions — DEMO ONLY, NOT FOR PRODUCTION */
+  "demo-fund": function () { DemoAdmin.fund(); DemoAdmin.open(); },
+  "demo-verify": function () { DemoAdmin.verify(); DemoAdmin.open(); },
+  "demo-nextday": function () { DemoAdmin.nextDay(); DemoAdmin.open(); },
+  "demo-time-reset": function () { DemoAdmin.timeReset(); DemoAdmin.open(); },
+  "demo-ref-add": function () { DemoAdmin.addReferral(); DemoAdmin.open(); },
+  "demo-ref-activity": function () { DemoAdmin.refActivity(); DemoAdmin.open(); },
+  "demo-wd-decide": function (el) { DemoAdmin.decideLatest(el.getAttribute("data-decision")); DemoAdmin.open(); },
+  "demo-reset": function () { DemoAdmin.resetAll(); },
+
+  /* modal internals */
+  "modal-close": function () { UI.closeModal(); },
+  "confirm-ok": function () {
+    if (UI._confirmResolve) {
+      var r = UI._confirmResolve; UI._confirmResolve = null; r(true);
+    }
+    UI.els.modalRoot.innerHTML = "";
+  },
+  "confirm-cancel": function () { UI.closeModal(); }
+};
+
+/* clipboard helper with graceful fallback for old WebViews */
+function copyText(text) {
+  return new Promise(function (resolve) {
+    try {
+      if (window.navigator && window.navigator.clipboard && window.navigator.clipboard.writeText) {
+        window.navigator.clipboard.writeText(text).then(function () { resolve(true); }, function () { resolve(legacyCopy(text)); });
+        return;
+      }
+    } catch (e) {}
+    resolve(legacyCopy(text));
+  });
+}
+function legacyCopy(text) {
+  try {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed"; ta.style.left = "-9999px"; ta.style.top = "0";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    var ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return !!ok;
+  } catch (e) { return false; }
+}
+
+/* ==========================================================================
+ * 23. Boot
+ * ========================================================================== */
+function TomatoQuestInit() {
+  DemoState.load();          /* DEMO ONLY — replaced by API session later */
+  RewardService.ensureDay();
+  WalletService.settle();
+  window.TelegramAppBridge.init();  /* placeholder — no-op until SDK added */
+  UI.init();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", TomatoQuestInit);
+} else {
+  TomatoQuestInit();
+}
+</script>
+</body>
+</html>
